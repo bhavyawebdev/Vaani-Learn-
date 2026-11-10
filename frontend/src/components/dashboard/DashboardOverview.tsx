@@ -303,7 +303,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         {/* Bottom 2-Column Split */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
           {/* Left Dark Streak Card */}
-          <div className="lg:col-span-5 bg-[#161716] text-white rounded-[24px] p-6 sm:p-7 flex flex-col justify-between gap-6">
+          <div className="lg:col-span-5 bg-[#161716] text-white rounded-[24px] p-5 sm:p-7 flex flex-col justify-between gap-6">
             <div>
               <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-neutral-300 text-[10px] font-semibold tracking-[0.14em] uppercase">
                 <span className="w-1.5 h-1.5 rounded-full bg-neutral-400" />
@@ -320,19 +320,19 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
               {/* Weekly Cadence */}
               <div className="mt-7 space-y-3">
-                <div className="flex items-center justify-between text-[11px]">
+                <div className="flex items-center justify-between text-[11px] gap-2">
                   <span className="font-semibold text-neutral-300">Weekly Cadence</span>
                   <span className="text-neutral-500">Target: 3 sessions / week</span>
                 </div>
 
-                <div className="grid grid-cols-7 gap-1.5 sm:gap-2 text-center">
+                <div className="grid grid-cols-7 gap-1 sm:gap-2 text-center">
                   {weekDays.map((day) => (
                     <div key={day.key} className="flex flex-col items-center gap-1.5">
                       <span className="text-[10px] text-neutral-500 font-medium">
                         {day.singleLabel}
                       </span>
                       <div
-                        className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-xs font-semibold transition ${
+                        className={`w-full max-w-[34px] sm:max-w-[38px] aspect-square rounded-full flex items-center justify-center text-[11px] sm:text-xs font-semibold transition ${
                           day.isToday
                             ? 'border border-dashed border-white text-white bg-white/10'
                             : 'bg-white/5 text-neutral-400'
@@ -360,7 +360,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </div>
 
           {/* Right Performance Trend Empty Card */}
-          <div className="lg:col-span-7 bg-white rounded-[24px] border border-[#EAEAEA] p-6 sm:p-7 flex flex-col justify-between gap-5">
+          <div className="lg:col-span-7 bg-white rounded-[24px] border border-[#EAEAEA] p-5 sm:p-7 flex flex-col justify-between gap-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2 className="text-lg sm:text-xl font-bold text-[#1A1C1B]">
@@ -377,8 +377,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             </div>
 
             {/* Chart Empty State Box */}
-            <div className="bg-[#F9F9F7] border border-[#F1F1EF] rounded-2xl p-6 text-center space-y-5">
-              <div className="py-5 flex flex-col items-center max-w-sm mx-auto space-y-3">
+            <div className="bg-[#F9F9F7] border border-[#F1F1EF] rounded-2xl p-4 sm:p-6 text-center space-y-5">
+              <div className="py-4 sm:py-5 flex flex-col items-center max-w-sm mx-auto space-y-3">
                 <div className="w-9 h-9 rounded-full bg-[#EFEFEE] flex items-center justify-center text-[#5E5E5E]">
                   <TrendingUp className="w-4 h-4" />
                 </div>
@@ -388,7 +388,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 </p>
               </div>
 
-              <div className="grid grid-cols-5 text-[10px] text-[#858383] border-t border-[#EAEAEA] pt-3">
+              <div className="grid grid-cols-5 gap-1 text-[9px] sm:text-[10px] text-[#858383] border-t border-[#EAEAEA] pt-3">
                 {emptyAxisDates.map((d) => (
                   <span key={d}>{d}</span>
                 ))}
@@ -571,7 +571,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
       {/* Bottom 2-Column Split */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Left Dark Active Streak Card */}
-        <div className="lg:col-span-5 bg-[#161716] text-white rounded-[24px] p-6 sm:p-7 flex flex-col justify-between gap-6">
+        <div className="lg:col-span-5 bg-[#161716] text-white rounded-[24px] p-5 sm:p-7 flex flex-col justify-between gap-6">
           <div>
             <div className="flex items-center justify-between">
               <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-neutral-200 text-[10px] font-semibold tracking-[0.14em] uppercase">
@@ -590,7 +590,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             </p>
 
             {/* 7-Day Real Activity Grid */}
-            <div className="grid grid-cols-7 gap-1.5 sm:gap-2 mt-7 text-center">
+            <div className="grid grid-cols-7 gap-1 sm:gap-2 mt-7 text-center">
               {weekDays.map((day) => (
                 <div key={day.key} className="flex flex-col items-center gap-1.5">
                   <span
@@ -601,7 +601,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                     {day.shortLabel}
                   </span>
                   <div
-                    className={`w-9 h-10 rounded-xl flex items-center justify-center text-xs font-semibold relative transition ${
+                    className={`w-full max-w-[36px] sm:max-w-[40px] h-9 sm:h-10 rounded-xl flex items-center justify-center text-[11px] sm:text-xs font-semibold relative transition ${
                       day.hasActivity
                         ? 'bg-white text-black shadow-xs'
                         : day.isToday
@@ -639,7 +639,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         </div>
 
         {/* Right Performance Trend & Real Uploaded PDFs Progress */}
-        <div className="lg:col-span-7 bg-white rounded-[24px] border border-[#EAEAEA] p-6 sm:p-7 flex flex-col justify-between gap-5">
+        <div className="lg:col-span-7 bg-white rounded-[24px] border border-[#EAEAEA] p-5 sm:p-7 flex flex-col justify-between gap-5">
           <div>
             <h2 className="text-lg sm:text-xl font-bold text-[#1A1C1B]">
               Learning Performance Trend
@@ -702,7 +702,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               })}
             </svg>
 
-            <div className="grid grid-cols-4 text-[11px] text-[#747878] pt-1">
+            <div className="grid grid-cols-4 gap-1 text-[10px] sm:text-[11px] text-[#747878] pt-1">
               {trendCheckpoints.map((pt, idx) => (
                 <span
                   key={pt.label}
@@ -714,7 +714,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                       : 'text-center'
                   }`}
                 >
-                  {pt.label} ({pt.score}%)
+                  {pt.label}{' '}
+                  <span className="block sm:inline">({pt.score}%)</span>
                 </span>
               ))}
             </div>

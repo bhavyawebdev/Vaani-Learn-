@@ -271,9 +271,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       />
 
       {/* Footer */}
-      <div className="w-full max-w-5xl mx-auto pt-6 border-t border-slate-200/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
+      <div className="w-full max-w-5xl mx-auto pt-6 border-t border-slate-200/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400 text-center">
         <p>© 2026 VaaniLearn AI. Editorial multilingual sanctuary.</p>
-        <div className="flex items-center space-x-6">
+        <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
           <a href="#terms" className="hover:text-slate-700 transition">Terms</a>
           <a href="#privacy" className="hover:text-slate-700 transition">Privacy</a>
           <a href="#languages" className="hover:text-slate-700 transition">Languages</a>

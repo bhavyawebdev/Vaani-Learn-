@@ -464,7 +464,7 @@ export const TutorView: React.FC<TutorViewProps> = ({
   // SCREEN 2: DYNAMIC STATE (User has uploaded PDFs / notes)
   // =========================================================================
   return (
-    <div className="max-w-5xl mx-auto flex flex-col min-h-[calc(100dvh-7.5rem)] space-y-5 animate-in fade-in duration-200">
+    <div className="max-w-5xl mx-auto flex flex-col min-h-[calc(100dvh-11.5rem)] md:min-h-[calc(100dvh-7.5rem)] space-y-5 animate-in fade-in duration-200">
       {/* Top Dynamic Header (Document Switcher + Dialect Switcher + CRUD actions) */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-[#EAEAEA]">
         <div>

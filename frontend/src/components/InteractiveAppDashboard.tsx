@@ -461,7 +461,7 @@ export const InteractiveAppDashboard: React.FC<InteractiveAppDashboardProps> = (
 
             {/* Popover Menus */}
             {openPopover === 'notifications' && (
-              <div className="absolute right-0 top-12 w-72 bg-white rounded-2xl border border-[#EAEAEA] shadow-lg p-4 text-xs z-40">
+              <div className="absolute right-0 top-12 w-[min(18rem,calc(100vw-2rem))] bg-white rounded-2xl border border-[#EAEAEA] shadow-lg p-4 text-xs z-40">
                 <p className="font-semibold text-[#1A1C1B] mb-2">Workspace Activity</p>
                 {documents.length === 0 ? (
                   <p className="text-[#747878]">
@@ -486,7 +486,7 @@ export const InteractiveAppDashboard: React.FC<InteractiveAppDashboardProps> = (
             )}
 
             {openPopover === 'profile' && (
-              <div className="absolute right-0 top-12 w-60 bg-white rounded-2xl border border-[#EAEAEA] shadow-lg p-3 text-xs space-y-2 z-40">
+              <div className="absolute right-0 top-12 w-[min(15rem,calc(100vw-2rem))] bg-white rounded-2xl border border-[#EAEAEA] shadow-lg p-3 text-xs space-y-2 z-40">
                 <div className="px-2 py-1.5 border-b border-[#F1F1EF]">
                   <p className="font-semibold text-[#1A1C1B] truncate">{displayName}</p>
                   <p className="text-[11px] text-[#747878] truncate">{effectiveEmail}</p>
@@ -556,7 +556,7 @@ export const InteractiveAppDashboard: React.FC<InteractiveAppDashboardProps> = (
 
         {/* Main Content Canvas */}
         <main
-          className="flex-1 px-4 sm:px-8 py-6 sm:py-8 overflow-y-auto"
+          className="flex-1 px-4 sm:px-8 pt-5 sm:pt-8 pb-24 md:pb-8 overflow-y-auto"
           onClick={() => {
             if (openPopover) setOpenPopover(null);
           }}
@@ -651,6 +651,34 @@ export const InteractiveAppDashboard: React.FC<InteractiveAppDashboardProps> = (
             </>
           )}
         </main>
+
+        {/* Mobile Bottom Navigation Bar */}
+        <nav
+          aria-label="Mobile navigation"
+          className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur border-t border-[#EAEAEA] px-2 py-1.5 flex items-center justify-around shadow-[0_-4px_16px_rgba(0,0,0,0.03)]"
+        >
+          {navItems.map((item) => {
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  setActiveTab(item.id);
+                  setMobileMenuOpen(false);
+                }}
+                className={`flex flex-col items-center justify-center gap-1 px-4 py-1.5 rounded-2xl text-[11px] transition ${
+                  isActive
+                    ? 'bg-[#F1F1EF] text-[#1A1C1B] font-semibold'
+                    : 'text-[#747878] hover:text-[#1A1C1B] font-medium'
+                }`}
+              >
+                {item.icon}
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </nav>
       </div>
 
       {/* CRUD Edit / Rename / Delete Modal for Study Notes & Extracted Chunks */}

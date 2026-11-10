@@ -59,12 +59,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       {/* =========================================================================
           HERO SECTION (Matches landingpage.png)
          ========================================================================= */}
-      <section className="pt-12 pb-20 md:pt-16 md:pb-28 max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
+      <section className="pt-8 pb-14 sm:pt-12 sm:pb-20 md:pt-16 md:pb-28 max-w-7xl mx-auto px-4 sm:px-8 lg:px-12">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-8 items-center">
           
           {/* Left Column: Headline, Subtitle & Buttons */}
-          <div className="lg:col-span-5 space-y-7">
-            <h1 className="text-4xl min-[400px]:text-[48px] sm:text-[60px] md:text-[68px] font-bold tracking-tight leading-[1.06] text-black">
+          <div className="lg:col-span-5 space-y-6 sm:space-y-7">
+            <h1 className="text-[36px] min-[400px]:text-[44px] sm:text-[60px] md:text-[68px] font-bold tracking-tight leading-[1.06] text-black">
               Turn your<br />
               knowledge<br />
               into a<br />
@@ -99,7 +99,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div className="relative mx-auto max-w-2xl bg-white rounded-3xl border border-slate-200 shadow-[0_20px_50px_rgba(0,0,0,0.06)] overflow-hidden">
               
               {/* Card Header: VaaniLearn AI + Avatar 'N' */}
-              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-white">
+              <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 bg-white">
                 <div className="flex items-center gap-2">
                   <Logo size="sm" />
                 </div>
@@ -109,7 +109,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </div>
 
               {/* Card Body: Sidebar & Main Chat */}
-              <div className="grid grid-cols-12 min-h-[460px] bg-slate-50/30">
+              <div className="grid grid-cols-12 min-h-[380px] sm:min-h-[460px] bg-slate-50/30">
                 
                 {/* Left Sidebar Menu */}
                 <div className="col-span-3 border-r border-slate-100 bg-white p-3 space-y-1 hidden sm:block">
@@ -148,7 +148,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 </div>
 
                 {/* Right Chat & PDF Interaction Area */}
-                <div className="col-span-12 sm:col-span-9 p-5 flex flex-col justify-between bg-[#FCFCFD]">
+                <div className="col-span-12 sm:col-span-9 p-3.5 sm:p-5 flex flex-col justify-between bg-[#FCFCFD]">
                   
                   {/* PDF Document Capsule */}
                   <div className="bg-white rounded-2xl border border-slate-200/90 p-3.5 shadow-sm flex items-center justify-between">
@@ -269,24 +269,24 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       {/* =========================================================================
           SECTION 2: FOUR KEY PILLARS (Matches landingpage.png)
          ========================================================================= */}
-      <section id="features" className="py-20 md:py-24 border-t border-slate-100 max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+      <section id="features" className="py-14 sm:py-20 md:py-24 border-t border-slate-100 max-w-7xl mx-auto px-4 sm:px-8 lg:px-12">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-start">
           
           {/* Left Column: Heading & Subtitle */}
           <div className="lg:col-span-5 space-y-4">
-            <h2 className="text-[36px] sm:text-[44px] font-bold tracking-tight leading-[1.12] text-black">
+            <h2 className="text-[28px] min-[380px]:text-[34px] sm:text-[44px] font-bold tracking-tight leading-[1.12] text-black">
               Having information isn't<br />
               the same as<br />
               understanding it.
             </h2>
-            <p className="text-[17px] text-slate-600 leading-relaxed max-w-md">
+            <p className="text-[15px] sm:text-[17px] text-slate-600 leading-relaxed max-w-md">
               VaaniLearn AI bridges the gap with<br className="hidden sm:inline" />
               interactive, voice-first learning.
             </p>
           </div>
 
           {/* Right Column: 4 Feature Pillars */}
-          <div className="lg:col-span-7 grid grid-cols-2 sm:grid-cols-4 gap-6 pt-2">
+          <div className="lg:col-span-7 grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6 pt-2">
             
             {/* Feature 1: AI Tutor */}
             <div className="space-y-3">
@@ -340,15 +340,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       {/* =========================================================================
           SECTION 3: HOW IT WORKS (Matches landingpage.png)
          ========================================================================= */}
-      <section id="how-it-works" className="py-20 md:py-24 bg-[#FAFAFB] border-y border-slate-100">
-        <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 text-center">
+      <section id="how-it-works" className="py-14 sm:py-20 md:py-24 bg-[#FAFAFB] border-y border-slate-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 text-center">
           
           {/* Pill Badge */}
           <div className="inline-block px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-600 mb-4">
             How it works
           </div>
 
-          <h2 className="text-[36px] sm:text-[44px] font-bold tracking-tight text-black">
+          <h2 className="text-[28px] sm:text-[44px] font-bold tracking-tight text-black">
             Just 4 simple steps.
           </h2>
 
@@ -403,14 +403,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       {/* =========================================================================
           SECTION 4: MULTILINGUAL LEARNING (Matches landingpage.png)
          ========================================================================= */}
-      <section id="languages" className="py-20 md:py-24 max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 text-center">
+      <section id="languages" className="py-14 sm:py-20 md:py-24 max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 text-center">
         
         {/* Pill Badge */}
         <div className="inline-block px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-600 mb-4">
           Multilingual Learning
         </div>
 
-        <h2 className="text-[36px] sm:text-[44px] font-bold tracking-tight text-black">
+        <h2 className="text-[28px] sm:text-[44px] font-bold tracking-tight text-black">
           Learn in your language.
         </h2>
 
@@ -467,20 +467,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       {/* =========================================================================
           SECTION 5: BOTTOM CTA BANNER (Matches landingpage.png)
          ========================================================================= */}
-      <section className="py-12 max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
-        <div className="bg-[#F3F4F6] rounded-3xl p-8 sm:p-12 lg:p-14 flex flex-col md:flex-row items-center justify-between gap-8">
+      <section className="py-10 sm:py-12 max-w-7xl mx-auto px-4 sm:px-8 lg:px-12">
+        <div className="bg-[#F3F4F6] rounded-3xl p-6 sm:p-12 lg:p-14 flex flex-col md:flex-row items-center justify-between gap-6 sm:gap-8">
           <div className="space-y-2 text-center md:text-left">
-            <h2 className="text-[32px] sm:text-[38px] font-bold tracking-tight text-black">
+            <h2 className="text-2xl sm:text-[34px] md:text-[38px] font-bold tracking-tight text-black">
               Make learning feel natural again.
             </h2>
-            <p className="text-[16px] text-slate-600 font-normal">
+            <p className="text-sm sm:text-[16px] text-slate-600 font-normal">
               Join thousands of learners who are already using VaaniLearn AI.
             </p>
           </div>
 
           <button
             onClick={onStartLearningFree}
-            className="flex-shrink-0 inline-flex items-center gap-2 bg-black hover:bg-neutral-800 text-white font-medium text-[15px] px-7 py-3.5 rounded-full transition-all duration-200 shadow-sm"
+            className="w-full sm:w-auto flex-shrink-0 inline-flex items-center justify-center gap-2 bg-black hover:bg-neutral-800 text-white font-medium text-[15px] px-7 py-3.5 rounded-full transition-all duration-200 shadow-sm"
           >
             <span>Start learning free</span>
             <ArrowRight className="w-4 h-4" />
@@ -491,8 +491,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       {/* =========================================================================
           FOOTER (Matches landingpage.png)
          ========================================================================= */}
-      <footer className="pt-12 pb-16 border-t border-slate-100 max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+      <footer className="pt-10 pb-12 sm:pt-12 sm:pb-16 border-t border-slate-100 max-w-7xl mx-auto px-4 sm:px-8 lg:px-12">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-6 sm:gap-8">
           
           {/* Logo on Left */}
           <div className="flex items-center">
@@ -500,7 +500,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
 
           {/* Links in Middle */}
-          <div className="flex flex-wrap items-center justify-center gap-8 text-[14px] text-slate-600 font-medium">
+          <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-8 text-[14px] text-slate-600 font-medium">
             <a href="#product" className="hover:text-black transition">Product</a>
             <a href="#features" className="hover:text-black transition">Features</a>
             <a href="#about" className="hover:text-black transition">About</a>

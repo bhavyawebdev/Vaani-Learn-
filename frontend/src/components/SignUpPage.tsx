@@ -258,7 +258,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({
             </div>
 
             {/* Password Validation Requirements */}
-            <div className="grid grid-cols-2 gap-2 text-xs pt-0.5">
+            <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-2 text-xs pt-0.5">
               <div className="flex items-center gap-1.5">
                 <span className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[10px] ${
                   hasMinLength ? 'bg-emerald-500 text-white' : 'border border-slate-300 text-slate-400'
@@ -345,7 +345,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({
         </div>
 
         {/* Security badges below card */}
-        <div className="flex items-center justify-center gap-3 text-xs text-slate-500">
+        <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 text-xs text-slate-500">
           <span className="flex items-center gap-1">
             <Lock className="w-3.5 h-3.5 text-slate-500" />
             256-bit encrypted
@@ -360,9 +360,9 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({
       </div>
 
       {/* Footer */}
-      <div className="w-full max-w-5xl mx-auto pt-6 border-t border-slate-200/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
+      <div className="w-full max-w-5xl mx-auto pt-6 border-t border-slate-200/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400 text-center">
         <p>© 2026 VaaniLearn AI. Editorial multilingual sanctuary.</p>
-        <div className="flex items-center space-x-6">
+        <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
           <a href="#terms" className="hover:text-slate-700 transition">Terms</a>
           <a href="#privacy" className="hover:text-slate-700 transition">Privacy</a>
           <a href="#languages" className="hover:text-slate-700 transition">Languages</a>

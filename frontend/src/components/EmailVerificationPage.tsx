@@ -335,7 +335,7 @@ export const EmailVerificationPage: React.FC<EmailVerificationPageProps> = ({
 
               {/* Resend & Back Actions */}
               <div className="w-full pt-4 space-y-2">
-                <div className="flex items-center justify-center gap-1.5 text-xs text-[#5E5E5E]">
+                <div className="flex flex-wrap items-center justify-center gap-1.5 text-xs text-[#5E5E5E]">
                   <span>Didn't receive the code?</span>
                   <button
                     type="button"
@@ -374,8 +374,8 @@ export const EmailVerificationPage: React.FC<EmailVerificationPageProps> = ({
         </div>
 
         {/* Auxiliary Security Note */}
-        <div className="mt-6 flex items-center gap-2 text-[#747878] text-xs font-normal">
-          <ShieldCheck className="w-4 h-4 text-[#747878]" />
+        <div className="mt-6 flex flex-wrap items-center justify-center text-center gap-2 text-[#747878] text-xs font-normal px-2">
+          <ShieldCheck className="w-4 h-4 text-[#747878] flex-shrink-0" />
           <span>Encrypted one-time magic token verification protocol</span>
         </div>
 
@@ -384,11 +384,11 @@ export const EmailVerificationPage: React.FC<EmailVerificationPageProps> = ({
       {/* =========================================================================
           FOOTER
          ========================================================================= */}
-      <footer className="w-full max-w-[1200px] mx-auto pt-8 pb-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#747878]">
+      <footer className="w-full max-w-[1200px] mx-auto pt-8 pb-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#747878] text-center">
         <div>
           © 2026 VaaniLearn AI. Editorial multilingual sanctuary.
         </div>
-        <nav className="flex items-center gap-6">
+        <nav className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
           <a href="#terms" className="hover:text-black transition-colors">Terms</a>
           <a href="#privacy" className="hover:text-black transition-colors">Privacy</a>
           <a href="#languages" className="hover:text-black transition-colors">Languages</a>
