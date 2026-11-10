@@ -4,7 +4,6 @@ import {
   BookOpen,
   Mic,
   Bell,
-  HelpCircle,
   LogOut,
   Menu,
   X,
@@ -361,7 +360,7 @@ export const InteractiveAppDashboard: React.FC<InteractiveAppDashboardProps> = (
                 VaaniLearn
               </p>
               <p className="text-[9px] font-semibold tracking-[0.16em] text-[#747878] uppercase mt-0.5">
-                AI STUDIO
+                AI EDUCATIONAL VOICE
               </p>
             </div>
           </button>
@@ -417,23 +416,24 @@ export const InteractiveAppDashboard: React.FC<InteractiveAppDashboardProps> = (
          ========================================================================= */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Workspace Header */}
-        <header className="h-14 bg-[#F9F9F7]/90 backdrop-blur border-b border-[#EAEAEA] px-4 sm:px-8 flex items-center justify-between sticky top-0 z-30">
-          <div className="flex items-center gap-3">
+        <header className="h-14 bg-[#F9F9F7]/90 backdrop-blur border-b border-[#EAEAEA] px-4 sm:px-8 flex items-center justify-between gap-2 sticky top-0 z-30">
+          <div className="flex items-center gap-2.5 min-w-0">
             <button
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-1.5 text-[#1A1C1B] rounded-lg hover:bg-[#EFEFEE]"
+              className="md:hidden p-1.5 text-[#1A1C1B] rounded-lg hover:bg-[#EFEFEE] flex-shrink-0"
               aria-label="Toggle menu"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
 
-            <span className="px-3 py-1 rounded-full bg-[#EFEFEE] text-[#5E5E5E] text-[10px] font-semibold tracking-[0.14em] uppercase">
-              VOICE WORKSPACE
+            <span className="inline-flex items-center gap-1.5 text-xs text-[#5E5E5E] truncate">
+              <Mic className="w-3.5 h-3.5 text-[#1A1C1B] flex-shrink-0" />
+              <span className="truncate">Multilingual Voice Engine Active</span>
             </span>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3 relative">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 relative flex-shrink-0">
             {/* Notifications Button */}
             <button
               type="button"
@@ -447,16 +447,6 @@ export const InteractiveAppDashboard: React.FC<InteractiveAppDashboardProps> = (
               {documents.some((d) => d.status === 'processing') && (
                 <span className="w-1.5 h-1.5 rounded-full bg-black absolute top-1.5 right-1.5" />
               )}
-            </button>
-
-            {/* Help Button */}
-            <button
-              type="button"
-              onClick={() => setOpenPopover(openPopover === 'help' ? null : 'help')}
-              className="p-2 text-[#5E5E5E] hover:text-black hover:bg-[#EFEFEE] rounded-full transition"
-              aria-label="Workspace help"
-            >
-              <HelpCircle className="w-4 h-4" />
             </button>
 
             {/* Top-Right Profile Avatar */}
@@ -492,19 +482,6 @@ export const InteractiveAppDashboard: React.FC<InteractiveAppDashboardProps> = (
                     ))}
                   </ul>
                 )}
-              </div>
-            )}
-
-            {openPopover === 'help' && (
-              <div className="absolute right-0 top-12 w-72 bg-white rounded-2xl border border-[#EAEAEA] shadow-lg p-4 text-xs space-y-2 z-40">
-                <p className="font-semibold text-[#1A1C1B]">Quick Guide</p>
-                <p className="text-[#5E5E5E] leading-relaxed">
-                  1. Upload any text-based PDF up to 25 MB.
-                </p>
-                <p className="text-[#5E5E5E] leading-relaxed">
-                  2. Click <strong>Open in Tutor</strong> to ask questions by typing or speaking in
-                  English, Hindi, or Gujarati.
-                </p>
               </div>
             )}
 
@@ -616,6 +593,7 @@ export const InteractiveAppDashboard: React.FC<InteractiveAppDashboardProps> = (
             <>
               {activeTab === 'dashboard' && (
                 <DashboardOverview
+                  userName={displayName}
                   documents={documents}
                   sessions={sessions}
                   activeLanguage={activeLanguage}
