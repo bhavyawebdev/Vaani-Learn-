@@ -22,6 +22,8 @@ import {
   deleteUserDocument,
   fetchDocumentChunks,
   fetchWorkspaceData,
+  MAX_PDF_BYTES,
+  MAX_PDF_LIMIT_NOTE,
   updateDocumentChunkText,
   updateDocumentDetails,
   uploadAndProcessPdf,
@@ -146,7 +148,7 @@ export const InteractiveAppDashboard: React.FC<InteractiveAppDashboardProps> = (
     };
   }, [selectedDocument?.id]);
 
-  const handleFileUpload = async (file: File) => {
+  const handleFilesUpload = async (fileOrFiles: File | File[]) => {
     if (!userId) {
       setStatusBanner({
         type: 'error',
@@ -155,56 +157,89 @@ export const InteractiveAppDashboard: React.FC<InteractiveAppDashboardProps> = (
       return;
     }
 
-    setStatusBanner(null);
-    setIsUploading(true);
-    setActiveUpload({
-      filename: file.name,
-      sizeBytes: file.size,
-      progress: 10,
-      stage: 'Validating PDF...',
-    });
-    let tempDocId = '';
+    const files = Array.isArray(fileOrFiles) ? fileOrFiles : [fileOrFiles];
+    if (files.length === 0) return;
 
-    try {
-      const result = await uploadAndProcessPdf({
-        file,
-        userId,
-        language: activeLanguage,
-        onOptimisticCreated: (pendingDoc) => {
-          tempDocId = pendingDoc.id;
-          setDocuments((prev) => [pendingDoc, ...prev]);
-        },
-        onProgress: (progress, stage) => {
-          setActiveUpload({
-            filename: file.name,
-            sizeBytes: file.size,
-            progress,
-            stage,
-          });
-        },
-      });
-
-      setDocuments((prev) => [
-        result.document,
-        ...prev.filter((d) => d.id !== tempDocId && d.id !== result.document.id),
-      ]);
-      setChunksByDocId((prev) => ({
-        ...prev,
-        [result.document.id]: result.chunks,
-      }));
-      setSelectedDocument(result.document);
-
-      if (result.schemaWarning) {
-        setStatusBanner({ type: 'info', message: result.schemaWarning });
-      }
-    } catch (err: any) {
-      if (tempDocId) {
-        setDocuments((prev) => prev.filter((d) => d.id !== tempDocId));
-      }
+    const invalidFile = files.find(
+      (f) => !f.name.toLowerCase().endsWith('.pdf') && f.type !== 'application/pdf'
+    );
+    if (invalidFile) {
       setStatusBanner({
         type: 'error',
-        message: err?.message || 'Failed to upload PDF. Please check the file and try again.',
+        message: `"${invalidFile.name}" is not a PDF. Only PDF files (.pdf) are supported.`,
       });
+      return;
+    }
+
+    const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
+    if (totalBytes > MAX_PDF_BYTES) {
+      setStatusBanner({
+        type: 'error',
+        message:
+          files.length > 1
+            ? `Combined size of selected PDFs exceeds 50 MB. ${MAX_PDF_LIMIT_NOTE}`
+            : MAX_PDF_LIMIT_NOTE,
+      });
+      return;
+    }
+
+    setStatusBanner(null);
+    setIsUploading(true);
+
+    try {
+      for (let idx = 0; idx < files.length; idx++) {
+        const file = files[idx];
+        const batchLabel = files.length > 1 ? `(${idx + 1}/${files.length}) ` : '';
+        setActiveUpload({
+          filename: file.name,
+          sizeBytes: file.size,
+          progress: 10,
+          stage: `${batchLabel}Validating PDF...`,
+        });
+
+        let tempDocId = '';
+        try {
+          const result = await uploadAndProcessPdf({
+            file,
+            userId,
+            language: activeLanguage,
+            onOptimisticCreated: (pendingDoc) => {
+              tempDocId = pendingDoc.id;
+              setDocuments((prev) => [pendingDoc, ...prev]);
+            },
+            onProgress: (progress, stage) => {
+              setActiveUpload({
+                filename: file.name,
+                sizeBytes: file.size,
+                progress,
+                stage: `${batchLabel}${stage}`,
+              });
+            },
+          });
+
+          setDocuments((prev) => [
+            result.document,
+            ...prev.filter((d) => d.id !== tempDocId && d.id !== result.document.id),
+          ]);
+          setChunksByDocId((prev) => ({
+            ...prev,
+            [result.document.id]: result.chunks,
+          }));
+          setSelectedDocument(result.document);
+
+          if (result.schemaWarning) {
+            setStatusBanner({ type: 'info', message: result.schemaWarning });
+          }
+        } catch (err: any) {
+          if (tempDocId) {
+            setDocuments((prev) => prev.filter((d) => d.id !== tempDocId));
+          }
+          setStatusBanner({
+            type: 'error',
+            message: err?.message || `Failed to upload "${file.name}". Please try again.`,
+          });
+        }
+      }
     } finally {
       setIsUploading(false);
       setActiveUpload(null);
@@ -212,9 +247,9 @@ export const InteractiveAppDashboard: React.FC<InteractiveAppDashboardProps> = (
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      void handleFileUpload(file);
+    const selectedFiles = e.target.files ? Array.from(e.target.files) : [];
+    if (selectedFiles.length > 0) {
+      void handleFilesUpload(selectedFiles);
     }
     e.target.value = '';
   };
@@ -330,11 +365,12 @@ export const InteractiveAppDashboard: React.FC<InteractiveAppDashboardProps> = (
 
   return (
     <div className="min-h-screen bg-[#F9F9F7] text-[#1A1C1B] flex font-sans antialiased">
-      {/* Visually-hidden Real PDF Upload Input (sr-only for full mobile Safari/Android compatibility) */}
+      {/* Visually-hidden Real PDF Upload Input (supports multi-file select up to 50 MB total) */}
       <input
         ref={fileInputRef}
         type="file"
         accept="application/pdf,.pdf"
+        multiple
         onChange={handleFileInputChange}
         tabIndex={-1}
         aria-hidden="true"
@@ -600,7 +636,7 @@ export const InteractiveAppDashboard: React.FC<InteractiveAppDashboardProps> = (
                   isUploading={isUploading}
                   onSelectLanguage={setActiveLanguage}
                   onTriggerUpload={() => fileInputRef.current?.click()}
-                  onFileDropped={(file) => void handleFileUpload(file)}
+                  onFileDropped={(files) => void handleFilesUpload(files)}
                   onOpenTutor={handleOpenTutor}
                   onViewLibrary={() => setActiveTab('library')}
                   onEditDocument={(doc) => void handleOpenEditModal(doc)}
@@ -614,7 +650,7 @@ export const InteractiveAppDashboard: React.FC<InteractiveAppDashboardProps> = (
                   isUploading={isUploading}
                   activeUpload={activeUpload}
                   onTriggerUpload={() => fileInputRef.current?.click()}
-                  onFileDropped={(file) => void handleFileUpload(file)}
+                  onFileDropped={(files) => void handleFilesUpload(files)}
                   onOpenTutor={(doc) => handleOpenTutor(doc)}
                   onEditDocument={(doc) => void handleOpenEditModal(doc)}
                   onDeleteDocument={(doc) => void handleDeleteDocument(doc)}

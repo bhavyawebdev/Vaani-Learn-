@@ -36,7 +36,7 @@ interface LibraryViewProps {
   isUploading: boolean;
   activeUpload: ActiveUploadProgress | null;
   onTriggerUpload: () => void;
-  onFileDropped: (file: File) => void;
+  onFileDropped: (files: File | File[]) => void;
   onOpenTutor: (doc: StudyDocument) => void;
   onEditDocument: (doc: StudyDocument) => void;
   onDeleteDocument: (doc: StudyDocument) => void;
@@ -89,8 +89,8 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) onFileDropped(file);
+    const droppedFiles = e.dataTransfer.files ? Array.from(e.dataTransfer.files) : [];
+    if (droppedFiles.length > 0) onFileDropped(droppedFiles);
   };
 
   const handleUrlImportSubmit = async (e: React.FormEvent) => {

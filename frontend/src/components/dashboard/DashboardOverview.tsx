@@ -24,7 +24,7 @@ interface DashboardOverviewProps {
   isUploading: boolean;
   onSelectLanguage: (lang: DialectCode) => void;
   onTriggerUpload: () => void;
-  onFileDropped: (file: File) => void;
+  onFileDropped: (files: File | File[]) => void;
   onOpenTutor: (doc?: StudyDocument, initialPrompt?: string, lang?: DialectCode) => void;
   onViewLibrary: () => void;
   onEditDocument: (doc: StudyDocument) => void;
