@@ -1,0 +1,75 @@
+{
+  "info": {
+    "name": "VaaniLearn AI — API Collection",
+    "description": "Postman / Bruno Collection for testing FastAPI, PyMuPDF, pgvector, and Gnani Voice endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8000/",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": [""]
+        }
+      }
+    },
+    {
+      "name": "Upload & Extract PDF (PyMuPDF)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": "Indian History.pdf"
+            },
+            {
+              "key": "language",
+              "value": "gu",
+              "type": "text"
+            }
+          ]
+        },
+        "url": {
+          "raw": "http://localhost:8000/api/v1/documents/upload",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["api", "v1", "documents", "upload"]
+        }
+      }
+    },
+    {
+      "name": "Voice / Multimodal Query (pgvector + Gemini + Gnani)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"document_id\": \"doc-uuid-1234\",\n  \"text_query\": \"આ અધ્યાયમાં મુખ્ય વિચારો શું છે?\",\n  \"language\": \"gu\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8000/api/v1/voice/query",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["api", "v1", "voice", "query"]
+        }
+      }
+    }
+  ]
+}
