@@ -17,6 +17,7 @@ export interface StudyDocument {
     char_count?: number;
     preview_snippet?: string;
     custom_notes?: string;
+    table_of_contents?: Array<{ title: string; page: number }>;
     [key: string]: unknown;
   };
   created_at: string;
@@ -49,6 +50,8 @@ export interface TutorMessage {
   text: string;
   language: DialectCode;
   wasVoice?: boolean;
+  audioUrl?: string | null;
+  ttsFailed?: boolean;
   pillars?: Array<{
     label: string;
     title: string;
