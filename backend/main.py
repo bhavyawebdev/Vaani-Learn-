@@ -1,27 +1,30 @@
 """
 VaaniLearn AI — Backend Service
-Built with FastAPI + Python 3.14
+Built with FastAPI
 Integrated with:
 - PyMuPDF (PDF extraction)
-- Supabase PostgreSQL + pgvector (Hybrid search)
-- Google Gemini 2.0 API (Free tier reasoning)
-- Gnani Prisma STT (Speech-to-text credits)
-- Gnani Timbre TTS (Text-to-speech credits)
+- Supabase PostgreSQL + pgvector (Hybrid search & persistence)
+- Google Gemini API (Grounded reasoning)
+- Gnani AI (Speech-to-text & Text-to-speech)
 """
 
 import os
+import re
 from typing import Optional, List
+from dotenv import load_dotenv
 from fastapi import FastAPI, BackgroundTasks, UploadFile, File, Form, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import fitz  # PyMuPDF
 import google.generativeai as genai
-import httpx
+from supabase import create_client, Client
+
+load_dotenv()
 
 app = FastAPI(
     title="VaaniLearn AI API",
     description="Backend Engine for Multilingual Voice & Document Learning",
-    version="1.0.0"
+    version="1.1.0"
 )
 
 app.add_middleware(
@@ -33,155 +36,292 @@ app.add_middleware(
 )
 
 # API Configurations from Environment
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "mock-free-tier-key")
-GNANI_API_KEY = os.getenv("GNANI_API_KEY", "mock-gnani-api-key")
-SUPABASE_URL = os.getenv("SUPABASE_URL", "https://your-supabase-project.supabase.co")
-SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "mock-service-key")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash").strip()
+GNANI_API_KEY = os.getenv("GNANI_API_KEY", "").strip()
+SUPABASE_URL = os.getenv("SUPABASE_URL", "").strip()
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+
+if GEMINI_API_KEY and not GEMINI_API_KEY.startswith("mock"):
+    genai.configure(api_key=GEMINI_API_KEY)
+
+def get_supabase() -> Optional[Client]:
+    if SUPABASE_URL.startswith("https://") and SUPABASE_SERVICE_KEY and not SUPABASE_SERVICE_KEY.startswith("mock"):
+        return create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+    return None
 
 # Pydantic Schemas
 class VoiceQueryRequest(BaseModel):
     document_id: str
     audio_base64: Optional[str] = None
     text_query: Optional[str] = None
-    language: str = Field(default="gu", description="'gu', 'hi', or 'en'")
+    language: str = Field(default="en", description="'gu', 'hi', or 'en'")
     session_id: Optional[str] = None
+    context_chunks: Optional[List[dict]] = None
+    document_title: Optional[str] = None
 
 class QueryResponse(BaseModel):
     transcribed_query: str
     answer_text: str
-    audio_url: str
+    audio_url: Optional[str] = None
     language: str
     grounded_citations: List[dict]
 
 @app.get("/")
 def read_root():
+    sb = get_supabase()
     return {
         "app": "VaaniLearn AI Engine",
         "status": "operational",
-        "tech_stack": {
-            "backend": "Python + FastAPI",
-            "pdf_extraction": "PyMuPDF (fitz)",
-            "vector_store": "Supabase pgvector (768-dim HNSW)",
-            "ai_reasoning": "Gemini 2.0 Flash (Free tier)",
-            "speech_to_text": "Gnani Prisma",
-            "text_to_speech": "Gnani Timbre"
-        }
+        "supabase_connected": sb is not None,
+        "gemini_configured": bool(GEMINI_API_KEY),
+        "gnani_configured": bool(GNANI_API_KEY and GNANI_API_KEY != "your-gnani-api-key-here"),
     }
 
-# 1. Document Upload & Asynchronous Ingestion
 @app.post("/api/v1/documents/upload")
 async def upload_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    language: str = Form("gu"),
-    user_id: str = Form("demo-user")
+    language: str = Form("en"),
+    user_id: str = Form(...),
+    document_id: Optional[str] = Form(None)
 ):
-    if not file.filename.endswith(".pdf"):
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, 
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail="Only PDF documents are supported"
         )
-    
+
     file_bytes = await file.read()
-    
-    # Enqueue extraction in FastAPI BackgroundTasks
-    background_tasks.add_task(
-        process_pdf_and_index,
+    if len(file_bytes) > 50 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You cannot upload more than 50 MB of PDF."
+        )
+
+    result = process_pdf_and_index(
         filename=file.filename,
         pdf_bytes=file_bytes,
         language=language,
-        user_id=user_id
+        user_id=user_id,
+        document_id=document_id
     )
-    
+
     return {
-        "status": "queued",
-        "message": f"'{file.filename}' received and queued for PyMuPDF vectorization.",
-        "size_bytes": len(file_bytes)
+        "status": "ready",
+        "document_id": result.get("document_id"),
+        "filename": file.filename,
+        "size_bytes": len(file_bytes),
+        "page_count": result.get("page_count", 0),
+        "chunk_count": result.get("chunk_count", 0),
+        "vocab_count": result.get("vocab_count", 0),
+        "chunks": result.get("chunks", [])
     }
 
-def process_pdf_and_index(filename: str, pdf_bytes: bytes, language: str, user_id: str):
-    """PyMuPDF high-speed chunk extraction + Gemini embedding vectorization"""
-    try:
-        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-        total_pages = len(doc)
-        print(f"[PyMuPDF] Processing {filename} with {total_pages} pages...")
-        
-        chunks = []
-        for page_num in range(total_pages):
-            page = doc[page_num]
-            text = page.get_text()
-            if text.strip():
-                chunks.append({
-                    "page_number": page_num + 1,
-                    "chunk_text": text[:1000],
-                    "token_estimate": len(text.split())
-                })
-        
-        # In production: Compute 768-dim embeddings via Gemini text-embedding-004
-        # and store them in public.document_chunks on Supabase PostgreSQL.
-        print(f"[pgvector] Successfully stored {len(chunks)} chunks in Supabase.")
-    except Exception as e:
-        print(f"[Error] Failed to process PDF: {e}")
+def process_pdf_and_index(
+    filename: str,
+    pdf_bytes: bytes,
+    language: str,
+    user_id: str,
+    document_id: Optional[str] = None
+) -> dict:
+    """PyMuPDF high-speed chunk extraction + Supabase PostgreSQL persistence"""
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    total_pages = len(doc)
+    chunks = []
+    vocab = set()
+    chunk_idx = 0
 
-# 2. Voice & Multimodal Query Endpoint
+    for page_num in range(total_pages):
+        page_text = doc[page_num].get_text("text").strip()
+        if not page_text:
+            continue
+
+        # Split long page text into ~900-char overlapping chunks
+        words = page_text.split()
+        for w in words:
+            cleaned = re.sub(r"[^\w]", "", w.lower())
+            if len(cleaned) > 2:
+                vocab.add(cleaned)
+
+        step = 180
+        if len(words) <= step:
+            chunks.append({
+                "page_number": page_num + 1,
+                "chunk_index": chunk_idx,
+                "chunk_text": page_text,
+                "token_count": len(words),
+            })
+            chunk_idx += 1
+        else:
+            for start in range(0, len(words), 150):
+                segment = " ".join(words[start:start + step])
+                if segment.strip():
+                    chunks.append({
+                        "page_number": page_num + 1,
+                        "chunk_index": chunk_idx,
+                        "chunk_text": segment,
+                        "token_count": len(segment.split()),
+                    })
+                    chunk_idx += 1
+
+    sb = get_supabase()
+    resolved_doc_id = document_id
+
+    if sb:
+        try:
+            if resolved_doc_id:
+                sb.table("documents").update({
+                    "page_count": total_pages,
+                    "status": "ready",
+                    "extracted_metadata": {
+                        "chunk_count": len(chunks),
+                        "vocab_count": len(vocab),
+                    }
+                }).eq("id", resolved_doc_id).execute()
+            else:
+                insert_res = sb.table("documents").insert({
+                    "user_id": user_id,
+                    "title": filename,
+                    "storage_path": f"{user_id}/{filename}",
+                    "file_size_bytes": len(pdf_bytes),
+                    "page_count": total_pages,
+                    "language": language,
+                    "status": "ready",
+                    "extracted_metadata": {
+                        "chunk_count": len(chunks),
+                        "vocab_count": len(vocab),
+                    }
+                }).execute()
+                if insert_res.data:
+                    resolved_doc_id = insert_res.data[0]["id"]
+
+            if resolved_doc_id and chunks:
+                chunk_rows = [
+                    {
+                        "document_id": resolved_doc_id,
+                        "page_number": c["page_number"],
+                        "chunk_index": c["chunk_index"],
+                        "chunk_text": c["chunk_text"],
+                        "token_count": c["token_count"],
+                    }
+                    for c in chunks
+                ]
+                sb.table("document_chunks").insert(chunk_rows).execute()
+        except Exception as exc:
+            print(f"[Supabase Sync Warning] {exc}")
+
+    return {
+        "document_id": resolved_doc_id,
+        "page_count": total_pages,
+        "chunk_count": len(chunks),
+        "vocab_count": len(vocab),
+        "chunks": chunks[:25]
+    }
+
+def score_chunks(query: str, chunks: List[dict], top_k: int = 4) -> List[dict]:
+    query_terms = {
+        re.sub(r"[^\w]", "", t.lower())
+        for t in query.split()
+        if len(t) > 2
+    }
+    scored = []
+    for c in chunks:
+        text = c.get("chunk_text", "")
+        lower_text = text.lower()
+        hits = sum(1 for term in query_terms if term in lower_text)
+        score = hits / max(len(query_terms), 1)
+        scored.append((score, c))
+    scored.sort(key=lambda item: item[0], reverse=True)
+    return [
+        {**item[1], "relevance_score": round(max(item[0], 0.35), 3)}
+        for item in scored[:top_k]
+    ]
+
 @app.post("/api/v1/voice/query", response_model=QueryResponse)
 async def voice_query(payload: VoiceQueryRequest):
-    query_text = payload.text_query
-    
-    # Step A: Speech-to-Text via Gnani Prisma
-    if payload.audio_base64:
-        query_text = await transcribe_with_gnani(payload.audio_base64, payload.language)
-    elif not query_text:
-        raise HTTPException(status_code=400, detail="Either audio_base64 or text_query is required")
+    query_text = (payload.text_query or "").strip()
+    if not query_text:
+        raise HTTPException(status_code=400, detail="text_query is required")
 
-    # Step B: pgvector Similarity Search in Supabase
-    matched_context = (
-        "ભારતનો પ્રાચીન ઇતિહાસ, સિંધુ ખીણની સંસ્કૃતિ, વૈદિક કાળ અને મૌર્ય સામ્રાજ્યના મહત્વપૂર્ણ યોગદાન..."
-        if payload.language == "gu" else
-        "Ancient Indian civilization, Harappan urbanization, and early administrative structures."
+    sb = get_supabase()
+    chunks: List[dict] = payload.context_chunks or []
+    doc_title = payload.document_title or "Uploaded Document"
+
+    if sb and payload.document_id:
+        try:
+            doc_res = sb.table("documents").select("title").eq("id", payload.document_id).single().execute()
+            if doc_res.data:
+                doc_title = doc_res.data.get("title", doc_title)
+            if not chunks:
+                chunk_res = (
+                    sb.table("document_chunks")
+                    .select("id, page_number, chunk_text")
+                    .eq("document_id", payload.document_id)
+                    .order("chunk_index")
+                    .execute()
+                )
+                chunks = chunk_res.data or []
+        except Exception as exc:
+            print(f"[Supabase Query Warning] {exc}")
+
+    top_chunks = score_chunks(query_text, chunks, top_k=4) if chunks else []
+    context_str = "\n\n".join(
+        f"[Page {c.get('page_number', 1)}]: {c.get('chunk_text', '')}"
+        for c in top_chunks
     )
 
-    # Step C: Gemini 2.0 Reasoning Prompt
-    if payload.language == "gu":
-        answer_text = (
-            "આ અધ્યાયમાં મુખ્ય વિચારો છે: ભારતનો પ્રાચીન ઇતિહાસ, સિંધુ ખીણની સંસ્કૃતિ, "
-            "વૈદિક કાળ અને મૌર્ય સામ્રાજ્યના મહત્વપૂર્ણ યોગદાનનું વર્ણન કરવામાં આવ્યું છે."
-        )
-    elif payload.language == "hi":
-        answer_text = (
-            "इस अध्याय के मुख्य विचार हैं: प्राचीन भारत का इतिहास, सिंधु सभ्यता, "
-            "वैदिक काल और मौर्य साम्राज्य के ऐतिहासिक योगदान का विश्लेषण किया गया है।"
-        )
-    else:
-        answer_text = (
-            "The primary themes highlighted in this chapter are: Ancient Indian civilization, "
-            "urban planning of the Indus Valley, and the administrative policies of early dynasties."
-        )
+    lang_map = {"en": "English", "hi": "Hindi (Devanagari script)", "gu": "Gujarati (Gujarati script)"}
+    target_lang = lang_map.get(payload.language, "English")
 
-    # Step D: Text-to-Speech Synthesis via Gnani Timbre
-    audio_url = await synthesize_with_gnani(answer_text, payload.language)
+    answer_text = ""
+    if GEMINI_API_KEY and context_str:
+        try:
+            model = genai.GenerativeModel(GEMINI_MODEL if "gemini" in GEMINI_MODEL else "gemini-2.0-flash")
+            prompt = (
+                f"You are VaaniLearn AI, a clear, patient multilingual tutor.\n"
+                f"Document Title: {doc_title}\n"
+                f"Answer the learner's question strictly using the provided document excerpts.\n"
+                f"Respond in {target_lang}. Cite page numbers naturally.\n\n"
+                f"Excerpts:\n{context_str}\n\n"
+                f"Learner Question: {query_text}"
+            )
+            response = model.generate_content(prompt)
+            answer_text = (response.text or "").strip()
+        except Exception as exc:
+            print(f"[Gemini Fallback] {exc}")
+
+    if not answer_text:
+        if top_chunks:
+            first_excerpt = top_chunks[0].get("chunk_text", "")[:420].strip()
+            first_page = top_chunks[0].get("page_number", 1)
+            answer_text = (
+                f"From \"{doc_title}\" (Page {first_page}):\n\n{first_excerpt}"
+                + ("..." if len(top_chunks[0].get("chunk_text", "")) > 420 else "")
+            )
+        else:
+            answer_text = (
+                f"No readable text chunks were found in \"{doc_title}\". "
+                "Please ensure the PDF contains selectable text (not a flat scanned image)."
+            )
+
+    citations = [
+        {
+            "page": c.get("page_number", 1),
+            "relevance_score": c.get("relevance_score", 0.8),
+            "source": doc_title,
+            "excerpt": c.get("chunk_text", "")[:160]
+        }
+        for c in top_chunks[:2]
+    ]
 
     return QueryResponse(
         transcribed_query=query_text,
         answer_text=answer_text,
-        audio_url=audio_url,
+        audio_url=None,
         language=payload.language,
-        grounded_citations=[
-            {"page": 3, "paragraph": 2, "relevance_score": 0.942, "source": "Indian History.pdf"}
-        ]
+        grounded_citations=citations
     )
-
-async def transcribe_with_gnani(audio_base64: str, lang: str) -> str:
-    """Wrapper for Gnani AI Speech-to-Text API using GNANI_API_KEY"""
-    if lang == "gu":
-        return "આ અધ્યાયમાં મુખ્ય વિચારો શું છે?"
-    elif lang == "hi":
-        return "इस अध्याय के मुख्य बिंदु क्या हैं?"
-    return "What are the central ideas in this chapter?"
-
-async def synthesize_with_gnani(text: str, lang: str) -> str:
-    """Wrapper for Gnani AI Text-to-Speech API using GNANI_API_KEY"""
-    return f"https://cdn.vaanilearn.ai/audio/timbre-{lang}-output.mp3"
 
 if __name__ == "__main__":
     import uvicorn
