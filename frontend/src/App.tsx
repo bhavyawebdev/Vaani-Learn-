@@ -12,23 +12,71 @@ function AppContent() {
   const { user, session, isLoading } = useAuth();
   const [currentPage, setCurrentPage] = useState<'landing' | 'signup' | 'login' | 'verify' | 'dashboard'>('landing');
   const [userEmail, setUserEmail] = useState<string>('aadhya.sharma@domain.edu');
+  const [oauthError, setOauthError] = useState<string | null>(null);
 
-  // Handle protected routing & session state changes
+  const navigateTo = (page: 'landing' | 'signup' | 'login' | 'verify' | 'dashboard') => {
+    if (page === 'dashboard') {
+      sessionStorage.setItem('vaanilearn_active_view', 'dashboard');
+    } else if (page === 'landing') {
+      sessionStorage.setItem('vaanilearn_active_view', 'landing');
+    }
+    setCurrentPage(page);
+  };
+
+  // Detect any OAuth errors returned in URL query/hash
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const errDesc =
+      searchParams.get('error_description') ||
+      hashParams.get('error_description') ||
+      searchParams.get('error') ||
+      hashParams.get('error');
+
+    if (errDesc) {
+      sessionStorage.removeItem('vaanilearn_oauth_redirect');
+      setOauthError(errDesc);
+      window.history.replaceState({}, document.title, window.location.pathname);
+      setCurrentPage('login');
+    }
+  }, []);
+
+  // Handle protected routing & session state changes (including Google OAuth redirects & refreshes)
   useEffect(() => {
     if (!isLoading) {
       if (session && user) {
-        // If authenticated and on auth screens, route to dashboard
-        if (currentPage === 'login' || currentPage === 'signup' || currentPage === 'verify') {
-          setCurrentPage('dashboard');
+        const isOAuthReturn =
+          sessionStorage.getItem('vaanilearn_oauth_redirect') === '1' ||
+          window.location.hash.includes('access_token=') ||
+          window.location.search.includes('code=');
+        const shouldRestoreDashboard =
+          sessionStorage.getItem('vaanilearn_active_view') === 'dashboard';
+
+        if (isOAuthReturn) {
+          sessionStorage.removeItem('vaanilearn_oauth_redirect');
+          if (window.location.hash || window.location.search) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
+          navigateTo('dashboard');
+          return;
+        }
+
+        if (
+          currentPage === 'login' ||
+          currentPage === 'signup' ||
+          currentPage === 'verify' ||
+          (currentPage === 'landing' && shouldRestoreDashboard)
+        ) {
+          navigateTo('dashboard');
         }
       } else {
-        // If not authenticated and trying to view dashboard, route to login
+        sessionStorage.removeItem('vaanilearn_active_view');
         if (currentPage === 'dashboard') {
           setCurrentPage('login');
         }
       }
     }
-  }, [session, user, isLoading]);
+  }, [session, user, isLoading, currentPage]);
 
   // Loading state while restoring session from localStorage / Supabase
   if (isLoading) {
@@ -52,25 +100,25 @@ function AppContent() {
           <Navbar
             onLoginClick={() => {
               if (session && user) {
-                setCurrentPage('dashboard');
+                navigateTo('dashboard');
               } else {
-                setCurrentPage('login');
+                navigateTo('login');
               }
             }}
             onGetStartedClick={() => {
               if (session && user) {
-                setCurrentPage('dashboard');
+                navigateTo('dashboard');
               } else {
-                setCurrentPage('signup');
+                navigateTo('signup');
               }
             }}
           />
           <LandingPage
             onStartLearningFree={() => {
               if (session && user) {
-                setCurrentPage('dashboard');
+                navigateTo('dashboard');
               } else {
-                setCurrentPage('signup');
+                navigateTo('signup');
               }
             }}
             onExploreExperience={() => {
@@ -83,11 +131,11 @@ function AppContent() {
       {/* 2. SIGN UP PAGE */}
       {currentPage === 'signup' && (
         <SignUpPage
-          onNavigateLogin={() => setCurrentPage('login')}
-          onNavigateHome={() => setCurrentPage('landing')}
+          onNavigateLogin={() => navigateTo('login')}
+          onNavigateHome={() => navigateTo('landing')}
           onSignUpSuccess={(registeredEmail) => {
             setUserEmail(registeredEmail || 'newstudent@vaanilearn.ai');
-            setCurrentPage('verify');
+            navigateTo('verify');
           }}
         />
       )}
@@ -95,15 +143,23 @@ function AppContent() {
       {/* 3. LOGIN PAGE */}
       {currentPage === 'login' && (
         <LoginPage
-          onNavigateSignUp={() => setCurrentPage('signup')}
-          onNavigateHome={() => setCurrentPage('landing')}
+          initialError={oauthError}
+          onNavigateSignUp={() => {
+            setOauthError(null);
+            navigateTo('signup');
+          }}
+          onNavigateHome={() => {
+            setOauthError(null);
+            navigateTo('landing');
+          }}
           onLoginSuccess={(signedInEmail) => {
+            setOauthError(null);
             setUserEmail(signedInEmail || 'student@vaanilearn.ai');
-            setCurrentPage('dashboard');
+            navigateTo('dashboard');
           }}
           onUnconfirmedEmail={(unconfirmedEmail) => {
             setUserEmail(unconfirmedEmail);
-            setCurrentPage('verify');
+            navigateTo('verify');
           }}
         />
       )}
@@ -114,10 +170,10 @@ function AppContent() {
           email={userEmail}
           demoOtp="123456"
           onVerificationSuccess={() => {
-            setCurrentPage('dashboard');
+            navigateTo('dashboard');
           }}
-          onBackToSignIn={() => setCurrentPage('login')}
-          onChangeEmail={() => setCurrentPage('signup')}
+          onBackToSignIn={() => navigateTo('login')}
+          onChangeEmail={() => navigateTo('signup')}
         />
       )}
 
@@ -125,7 +181,7 @@ function AppContent() {
       {currentPage === 'dashboard' && (
         <InteractiveAppDashboard
           currentUserEmail={userEmail}
-          onBackToLanding={() => setCurrentPage('landing')}
+          onBackToLanding={() => navigateTo('landing')}
         />
       )}
 

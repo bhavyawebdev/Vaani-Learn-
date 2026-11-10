@@ -26,6 +26,7 @@ export interface AuthState {
 export interface AuthContextType extends AuthState {
   signUp: (payload: SignUpPayload) => Promise<{ error: AuthError | Error | null; email?: string }>;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | Error | null; isUnconfirmed?: boolean }>;
+  signInWithGoogle: () => Promise<{ error: AuthError | Error | null }>;
   verifyOtp: (email: string, token: string) => Promise<{ error: AuthError | Error | null }>;
   resendOtp: (email: string) => Promise<{ error: AuthError | Error | null }>;
   signOut: () => Promise<void>;

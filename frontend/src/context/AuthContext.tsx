@@ -78,7 +78,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             await fetchProfile(
               initialSession.user.id,
               initialSession.user.email,
-              initialSession.user.user_metadata?.full_name
+              initialSession.user.user_metadata?.full_name || initialSession.user.user_metadata?.name
             );
           }
           setIsLoading(false);
@@ -102,7 +102,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await fetchProfile(
           newSession.user.id,
           newSession.user.email,
-          newSession.user.user_metadata?.full_name
+          newSession.user.user_metadata?.full_name || newSession.user.user_metadata?.name
         );
       } else {
         setProfile(null);
@@ -178,6 +178,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Sign in / Sign up with Google OAuth via Supabase
+  const signInWithGoogle = async () => {
+    if (!isSupabaseConfigured) {
+      return {
+        error: new Error(
+          'Supabase credentials are not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in frontend/.env.'
+        ),
+      };
+    }
+
+    try {
+      sessionStorage.setItem('vaanilearn_oauth_redirect', '1');
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'select_account',
+          },
+        },
+      });
+
+      if (error) {
+        sessionStorage.removeItem('vaanilearn_oauth_redirect');
+        return { error };
+      }
+
+      return { error: null };
+    } catch (err: any) {
+      sessionStorage.removeItem('vaanilearn_oauth_redirect');
+      return { error: err };
+    }
+  };
+
   // Verify OTP token for signup
   const verifyOtp = async (email: string, token: string) => {
     if (!isSupabaseConfigured) {
@@ -235,6 +270,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Sign out
   const signOut = async () => {
+    sessionStorage.removeItem('vaanilearn_active_view');
+    sessionStorage.removeItem('vaanilearn_oauth_redirect');
     if (isSupabaseConfigured) {
       await supabase.auth.signOut();
     }
@@ -322,6 +359,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isConfigured: isSupabaseConfigured,
     signUp,
     signIn,
+    signInWithGoogle,
     verifyOtp,
     resendOtp,
     signOut,
