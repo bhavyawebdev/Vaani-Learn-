@@ -1,5 +1,5 @@
 # VaaniLearn AI — Multilingual Voice & Document Learning Platform
-
+Please try to logging with "Sign in with google " button to avoid the otp verification bcz due to some reason it has stopped thats why i hope you understand 
 Official implementation of **VaaniLearn AI** built from the design mockups (`landingpage.png`, `Login.png`, `signup.png`, `Logo.png`) and technical specification in `Vaanitrd.md`.
 
 ---
