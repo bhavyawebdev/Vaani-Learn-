@@ -63,8 +63,45 @@ export function resumeSpeaking(): void {
   }
 }
 
+/**
+ * Strips page numbers, bracketed citations, markdown symbols, and raw document file headers
+ * so the tutor reads the explanation naturally aloud without saying "Page 236", "Page 1 to 18", or "bullet".
+ */
+export function cleanTextForSpeech(text: string): string {
+  if (!text) return '';
+  let cleaned = text;
+
+  // 1. Remove markdown bold/italic/code/headers
+  cleaned = cleaned.replace(/^#{1,6}\s+/gm, '');
+  cleaned = cleaned.replace(/\*{1,3}([^*]+)\*{1,3}/g, '$1');
+  cleaned = cleaned.replace(/`([^`]+)`/g, '$1');
+
+  // 2. Remove parenthesized or bracketed page citations: (Page 236), (Pages 1–18), [Page 5], (पृष्ठ 12), (પાનું 4)
+  cleaned = cleaned.replace(/\s*[\(\[](?:pages?|पृष्ठ|પાનું|p\.)\s*\d+(?:\s*(?:[\-\–—]|to)\s*\d+)?[\)\]]/gi, '');
+
+  // 3. Remove phrases like "starting on Page 5", "Based on Page 12:", "on Page 236"
+  cleaned = cleaned.replace(/\s*\b(?:starting\s+on\s+|based\s+on\s+|on\s+)(?:pages?|पृष्ठ|પાનું)\s*\d+(?:\s*(?:[\-\–—]|to)\s*\d+)?(?::|\b)/gi, '');
+  cleaned = cleaned.replace(/\b(?:pages?|पृष्ठ|પાનું)\s+\d+:?\b/gi, '');
+
+  // 4. Remove leading raw filename callouts: e.g. From "Project Mary Hail.pdf":
+  cleaned = cleaned.replace(/^\s*From\s+["'][^"']+\.pdf["']\s*:?\s*/gim, '');
+
+  // 5. Clean up bullet points & leaders so speech doesn't say "bullet"
+  cleaned = cleaned.replace(/^[•\-\*]\s*:?\s*/gm, '');
+  cleaned = cleaned.replace(/\.{2,}\s*\d+/g, '');
+
+  // 6. Clean up empty parentheses, orphan colons, and multi-spaces
+  cleaned = cleaned.replace(/\(\s*\)/g, '');
+  cleaned = cleaned.replace(/^\s*:\s*/gm, '');
+  cleaned = cleaned.replace(/[ \t]{2,}/g, ' ');
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
+
+  return cleaned;
+}
+
 function splitTextIntoSpeechChunks(text: string, maxLen = 180): string[] {
-  const cleaned = text.replace(/\s+/g, ' ').trim();
+  const speechReady = cleanTextForSpeech(text);
+  const cleaned = speechReady.replace(/\s+/g, ' ').trim();
   if (!cleaned) return [];
 
   const sentences = cleaned.split(/(?<=[.!?।])\s+/);

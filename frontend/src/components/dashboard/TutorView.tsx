@@ -930,6 +930,9 @@ export const TutorView: React.FC<TutorViewProps> = ({
                             ? 'Paused'
                             : 'Spoken Synthesis'}
                         </span>
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-[#EFEFEE] text-[#1A1C1B]">
+                          {msg.audioUrl ? 'Gnani Timbre TTS' : 'Browser Neural TTS'}
+                        </span>
                         <span className="text-[11px] text-[#747878]">
                           {DIALECT_CONFIG[msg.language].label}
                         </span>
@@ -1179,7 +1182,7 @@ export const TutorView: React.FC<TutorViewProps> = ({
         {tutorStatus === 'transcribing' && (
           <div className="bg-white border border-[#EAEAEA] rounded-2xl px-4 py-3 flex items-center gap-2.5 text-xs font-medium text-[#1A1C1B]">
             <Loader2 className="w-4 h-4 animate-spin text-black flex-shrink-0" />
-            <span>Understanding your question...</span>
+            <span>Transcribing with Gnani AI Prisma STT...</span>
           </div>
         )}
 
@@ -1315,9 +1318,9 @@ export const TutorView: React.FC<TutorViewProps> = ({
               ? 'Tap to ask your tutor • Speaks only from your selected PDF'
               : `Active PDF: ${formatShortDocTitle(activeDoc?.title || '', 30)}`}
           </span>
-          <span className="inline-flex items-center gap-1">
-            <Lock className="w-3 h-3" />
-            <span>Strict Grounded Retrieval</span>
+          <span className="inline-flex items-center gap-1.5 text-[#5E5E5E]">
+            <Sparkles className="w-3 h-3 text-[#1A1C1B]" />
+            <span>Powered by Gnani AI &amp; Gemini RAG</span>
           </span>
         </div>
       </div>

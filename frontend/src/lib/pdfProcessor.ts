@@ -19,18 +19,14 @@ export interface ExtractedPdfResult {
 }
 
 const STOP_WORDS = new Set([
-  'what', 'when', 'where', 'which', 'who', 'whom', 'whose', 'why', 'how',
-  'the', 'and', 'for', 'that', 'this', 'with', 'from', 'about', 'into',
-  'your', 'have', 'has', 'had', 'were', 'was', 'are', 'is', 'can', 'could',
-  'would', 'should', 'will', 'shall', 'may', 'might', 'there', 'their',
-  'they', 'them', 'then', 'than', 'just', 'like', 'know', 'want', 'wanted',
-  'many', 'much', 'more', 'most', 'some', 'any', 'all', 'one', 'two',
-  'hey', 'hello', 'please', 'tell', 'give', 'explain', 'describe', 'list',
-  'summarize', 'summary', 'overview', 'core', 'concepts', 'main', 'ideas',
-  'chapter', 'chapters', 'section', 'sections', 'unit', 'units', 'part',
-  'content', 'contents', 'index', 'topic', 'topics',
-  'pdf', 'document', 'book', 'file', 'page', 'pages', 'notes', 'study',
-  'material', 'does', 'did', 'not', 'you', 'our', 'here', 'only',
+  'the', 'a', 'an', 'and', 'or', 'but', 'is', 'are', 'was', 'were', 'be',
+  'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'to', 'in',
+  'at', 'of', 'on', 'for', 'with', 'by', 'as', 'it', 'its', 'this', 'that',
+  'these', 'those', 'i', 'you', 'he', 'she', 'we', 'they', 'my', 'your',
+  'his', 'her', 'our', 'their', 'me', 'him', 'them', 'us', 'from', 'up',
+  'down', 'into', 'over', 'after', 'can', 'could', 'should', 'would', 'will',
+  'shall', 'may', 'might', 'must', 'just', 'so', 'than', 'then', 'too', 'very',
+  's', 't', 're', 've', 'd', 'll', 'm', 'please', 'hey', 'hello',
 ]);
 
 function extractLinesFromTextItems(items: any[]): string[] {
@@ -64,14 +60,18 @@ function extractLinesFromTextItems(items: any[]): string[] {
 }
 
 const CHAPTER_LINE_REGEX =
-  /^(?:chapter|ch\.?|unit|module|part|lesson|topic)\s+(?:\d+|[ivxlcdm]+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|twenty[- ]?\w+|thirty)(?:\s*[:.\-–—]\s*.*)?$/i;
+  /^(?:chapter|ch\.?|unit|module|part|lesson|topic)\s+(?:\d{1,3}|[ivxlcdm]+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|twenty[- ]\w+|thirty)\b(?:\s*[:.\-–—]?\s*.*)?$/i;
+
+const CHAPTER_CANONICAL_KEY_REGEX =
+  /^(?:chapter|ch\.?|unit|module|part|lesson|topic)\s+(?:\d{1,3}|[ivxlcdm]+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|twenty[- ]\w+|thirty)\b/i;
 
 const NUMBERED_HEADING_REGEX = /^(\d{1,2})\.\s+([A-Z][A-Za-z0-9\s,'\-:&()]{3,75})$/;
-const TOC_ENTRY_LINE_REGEX = /^((?:\d{1,2}[.)]\s+)?[A-Za-z][A-Za-z0-9\s,'\-:&()]{2,65}?)\s*(?:\.{2,}|\s{2,})\s*(\d{1,4})$/;
+const TOC_ENTRY_LINE_REGEX =
+  /^((?:\d{1,2}[.)]\s+)?[A-Za-z][A-Za-z0-9\s,'\-:&()]{2,65}?)\s*(?:\.{2,}|\s{2,})\s*(\d{1,4})$/;
 
 function isLikelyHeadingLine(line: string): boolean {
   const trimmed = line.replace(/\s+/g, ' ').trim();
-  if (trimmed.length < 4 || trimmed.length > 90) return false;
+  if (trimmed.length < 3 || trimmed.length > 90) return false;
   if (CHAPTER_LINE_REGEX.test(trimmed)) return true;
   if (NUMBERED_HEADING_REGEX.test(trimmed) && !/[.!?]$/.test(trimmed)) return true;
   return false;
@@ -243,133 +243,221 @@ export async function extractPdfContent(file: File): Promise<ExtractedPdfResult>
 
 /**
  * Fallback chapter/heading scanner across persisted chunks when native outline wasn't stored yet.
+ * Strictly extracts clean, non-duplicate chapter headings in page order.
  */
 export function detectChaptersInChunks(
   chunks: DocumentChunk[],
   storedToc?: TocEntry[]
 ): TocEntry[] {
+  // If pre-stored TOC exists, sanitize and deduplicate it
   if (storedToc && storedToc.length > 0) {
-    return storedToc;
+    const validStored: TocEntry[] = [];
+    const seen = new Set<string>();
+    const seenPages = new Set<number>();
+
+    for (const item of storedToc) {
+      const cleanTitle = item.title.replace(/\s+/g, ' ').trim();
+      const lower = cleanTitle.toLowerCase();
+      if (!cleanTitle || /^(contents|table of contents|index|title|cover|page|preface|foreword)$/i.test(lower)) {
+        continue;
+      }
+      const page = Math.max(1, item.page || 1);
+      const canonicalMatch = cleanTitle.match(CHAPTER_CANONICAL_KEY_REGEX);
+      const key = canonicalMatch ? canonicalMatch[0].toLowerCase() : lower;
+
+      if (!seen.has(key)) {
+        seen.add(key);
+        seenPages.add(page);
+        validStored.push({ title: cleanTitle, page });
+      }
+    }
+
+    if (validStored.length > 0) {
+      return validStored.sort((a, b) => a.page - b.page);
+    }
   }
 
+  const sortedChunks = [...chunks].sort((a, b) => a.page_number - b.page_number || a.chunk_index - b.chunk_index);
   const found: TocEntry[] = [];
-  const seen = new Set<string>();
-  const inlineHeadingRegex =
-    /(?:^|\n|\s{2,})((?:chapter|unit|module|part)\s+(?:\d+|[ivxlcdm]+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty)(?:\s*[:.\-–—]\s*[A-Za-z0-9\s,'\-]{2,50})?)(?=\s|$)/gi;
+  const seenCanonical = new Set<string>();
+  const seenTitles = new Set<string>();
 
-  for (const chunk of chunks) {
-    const isEarlyTocChunk =
-      chunk.page_number <= 15 &&
-      /\b(table of contents|contents|index)\b/i.test(chunk.chunk_text);
+  // Pass 1: Check early pages (pages <= 20) for table of contents entries
+  for (const chunk of sortedChunks) {
+    if (chunk.page_number > 20) break;
+    const isEarlyTocChunk = /\b(table of contents|contents|index)\b/i.test(chunk.chunk_text);
+    if (!isEarlyTocChunk) continue;
 
     const lines = chunk.chunk_text.split('\n');
     for (const line of lines) {
       const cleaned = line.replace(/\s+/g, ' ').trim();
-      if (isEarlyTocChunk) {
-        const tocMatch = cleaned.match(TOC_ENTRY_LINE_REGEX);
-        if (tocMatch) {
-          const title = tocMatch[1].replace(/\s+/g, ' ').trim();
-          const targetPage = Math.max(1, Number(tocMatch[2]) || chunk.page_number);
-          const key = title.toLowerCase();
-          if (!seen.has(key) && !/^(contents|table of contents|page)$/i.test(key)) {
-            seen.add(key);
-            found.push({ title, page: targetPage });
-            continue;
-          }
-        }
-      }
-      if (isLikelyHeadingLine(cleaned)) {
-        const key = cleaned.toLowerCase();
-        if (!seen.has(key)) {
-          seen.add(key);
-          found.push({ title: cleaned, page: chunk.page_number });
-        }
-      }
-    }
+      const tocMatch = cleaned.match(TOC_ENTRY_LINE_REGEX);
+      if (tocMatch) {
+        const title = tocMatch[1].replace(/\s+/g, ' ').trim();
+        const targetPage = Math.max(1, Number(tocMatch[2]) || chunk.page_number);
+        const lower = title.toLowerCase();
+        if (/^(contents|table of contents|page|index)$/i.test(lower)) continue;
 
-    let m: RegExpExecArray | null;
-    while ((m = inlineHeadingRegex.exec(chunk.chunk_text)) !== null) {
-      const candidate = m[1].replace(/\s+/g, ' ').trim();
-      const key = candidate.toLowerCase();
-      if (!seen.has(key) && candidate.length <= 75) {
-        seen.add(key);
-        found.push({ title: candidate, page: chunk.page_number });
+        const canonicalMatch = title.match(CHAPTER_CANONICAL_KEY_REGEX);
+        const key = canonicalMatch ? canonicalMatch[0].toLowerCase() : lower;
+        if (!seenCanonical.has(key)) {
+          seenCanonical.add(key);
+          seenTitles.add(lower);
+          found.push({ title, page: targetPage });
+        }
       }
     }
   }
 
-  return found;
+  // If early TOC gave us structured chapters, sort and return
+  if (found.length >= 2) {
+    return found.sort((a, b) => a.page - b.page);
+  }
+
+  // Pass 2: Scan standalone heading lines across chunks (ignores inline body text)
+  for (const chunk of sortedChunks) {
+    const lines = chunk.chunk_text.split('\n');
+    for (const line of lines) {
+      const cleaned = line.replace(/\s+/g, ' ').trim();
+      if (!isLikelyHeadingLine(cleaned)) continue;
+
+      const lower = cleaned.toLowerCase();
+      if (/^(contents|table of contents|index|title|cover|page)$/i.test(lower)) continue;
+
+      const canonicalMatch = cleaned.match(CHAPTER_CANONICAL_KEY_REGEX);
+      // Canonical key (e.g. "chapter 1") prevents running headers on multiple pages from duplicating
+      const key = canonicalMatch ? canonicalMatch[0].toLowerCase() : lower;
+
+      if (!seenCanonical.has(key) && !seenTitles.has(lower)) {
+        seenCanonical.add(key);
+        seenTitles.add(lower);
+        found.push({ title: cleaned, page: chunk.page_number });
+      }
+    }
+  }
+
+  return found.sort((a, b) => a.page - b.page);
 }
 
 export function extractQueryTerms(query: string): string[] {
-  return query
+  const rawTokens = query
     .toLowerCase()
     .split(/\s+/)
     .map((t) => t.replace(/[^\p{L}\p{N}]/gu, ''))
-    .filter((t) => t.length > 2 && !STOP_WORDS.has(t));
+    .filter(Boolean);
+
+  const filtered = rawTokens.filter((t) => {
+    // Keep numbers like "1", "2", "3" which often denote chapters, pages, sections
+    if (/^\d+$/.test(t)) return true;
+    return t.length > 1 && !STOP_WORDS.has(t);
+  });
+
+  if (filtered.length === 0) {
+    return rawTokens.filter((t) => t.length > 1 && !STOP_WORDS.has(t));
+  }
+  return filtered;
 }
 
 /**
- * Ranks ALL chunks of a PDF using BM25/TF-IDF lexical relevance with inverse-document-frequency
- * weighting so rare domain concepts beat common filler words.
+ * Ranks chunks of a PDF using hybrid BM25 + subword stem matching + phrase proximity.
+ * Ensures the most semantically relevant sections for the specific question are surfaced.
  */
 export function findRelevantChunks(
   query: string,
   chunks: DocumentChunk[],
-  limit = 6
+  limit = 6,
+  excludedChunkIndices?: Set<number>
 ): Array<DocumentChunk & { relevanceScore: number; termHits: number }> {
   if (!chunks.length) return [];
 
   const queryTerms = Array.from(new Set(extractQueryTerms(query)));
   const totalDocs = chunks.length;
 
-  // Compute Document Frequency per query term
+  if (queryTerms.length === 0) {
+    // Return early overview chunks (skipping excluded)
+    const valid = chunks.filter((c) => !excludedChunkIndices?.has(c.chunk_index));
+    return (valid.length ? valid : chunks).slice(0, limit).map((c) => ({
+      ...c,
+      relevanceScore: 0.5,
+      termHits: 0,
+    }));
+  }
+
+  // Generate stems for flexible matching (e.g., "characters" -> "character", "explains" -> "explain")
+  const stems = queryTerms.map((t) => {
+    if (t.length > 4 && t.endsWith('s')) return t.slice(0, -1);
+    if (t.length > 5 && (t.endsWith('ed') || t.endsWith('es'))) return t.slice(0, -2);
+    if (t.length > 6 && t.endsWith('ing')) return t.slice(0, -3);
+    return t;
+  });
+
+  const queryLower = query.toLowerCase();
+
+  // Document frequencies
   const docFreq: Record<string, number> = {};
-  const chunkTokens = chunks.map((chunk) => {
-    const words = chunk.chunk_text.toLowerCase().split(/\W+/).filter(Boolean);
-    const freq: Record<string, number> = {};
-    for (const w of words) {
-      freq[w] = (freq[w] || 0) + 1;
-    }
-    for (const term of queryTerms) {
-      if (freq[term] || chunk.chunk_text.toLowerCase().includes(term)) {
+  const chunkData = chunks.map((chunk) => {
+    const textLower = chunk.chunk_text.toLowerCase();
+    const words = textLower.split(/\W+/).filter(Boolean);
+    const wordSet = new Set(words);
+
+    for (let i = 0; i < queryTerms.length; i++) {
+      const term = queryTerms[i];
+      const stem = stems[i];
+      if (wordSet.has(term) || wordSet.has(stem) || textLower.includes(term)) {
         docFreq[term] = (docFreq[term] || 0) + 1;
       }
     }
-    return { chunk, freq, length: words.length || 1 };
+    return { chunk, textLower, words, wordSet, length: words.length || 1 };
   });
 
   const avgDocLen =
-    chunkTokens.reduce((sum, item) => sum + item.length, 0) / Math.max(totalDocs, 1);
+    chunkData.reduce((sum, item) => sum + item.length, 0) / Math.max(totalDocs, 1);
 
-  const k1 = 1.5;
-  const b = 0.75;
+  const k1 = 1.4;
+  const b = 0.6;
 
-  const scored = chunkTokens.map(({ chunk, freq, length }) => {
-    if (queryTerms.length === 0) {
-      const earlyScore = Math.max(0.25, 0.9 - chunk.chunk_index * 0.02);
-      return { ...chunk, relevanceScore: earlyScore, termHits: 0 };
-    }
-
+  const scored = chunkData.map(({ chunk, textLower, wordSet, length }) => {
     let bm25Score = 0;
     let termHits = 0;
 
-    for (const term of queryTerms) {
-      const tf = freq[term] || (chunk.chunk_text.toLowerCase().includes(term) ? 0.5 : 0);
-      if (tf > 0) {
+    for (let i = 0; i < queryTerms.length; i++) {
+      const term = queryTerms[i];
+      const stem = stems[i];
+
+      let matchWeight = 0;
+      if (wordSet.has(term)) {
+        matchWeight = 1.0;
+      } else if (wordSet.has(stem)) {
+        matchWeight = 0.85;
+      } else if (textLower.includes(term)) {
+        matchWeight = 0.7;
+      }
+
+      if (matchWeight > 0) {
         termHits += 1;
         const df = docFreq[term] || 1;
         const idf = Math.log(1 + (totalDocs - df + 0.5) / (df + 0.5));
+        const tf = matchWeight;
         const numerator = tf * (k1 + 1);
         const denominator = tf + k1 * (1 - b + b * (length / avgDocLen));
         bm25Score += idf * (numerator / denominator);
       }
     }
 
-    const normalized = Math.min(0.99, bm25Score / Math.max(queryTerms.length * 2.2, 1));
+    // Exact multi-term phrase boost
+    if (queryTerms.length >= 2 && textLower.includes(queryTerms.slice(0, 3).join(' '))) {
+      bm25Score += 2.5;
+    }
+
+    // Slightly penalize chunks that were already cited in immediate prior turns if other good hits exist
+    if (excludedChunkIndices?.has(chunk.chunk_index)) {
+      bm25Score *= 0.7;
+    }
+
+    const normalized = Math.min(0.99, bm25Score / Math.max(queryTerms.length * 1.8, 1));
     return {
       ...chunk,
-      relevanceScore: termHits === 0 ? 0 : Math.max(0.2, normalized),
+      relevanceScore: termHits === 0 ? 0 : Math.max(0.15, Number(normalized.toFixed(3))),
       termHits,
     };
   });

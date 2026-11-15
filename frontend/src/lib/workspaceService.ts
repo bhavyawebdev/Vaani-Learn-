@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from './supabase';
+import { cleanTextForSpeech } from './voiceUtils';
 import {
   detectChaptersInChunks,
   extractPdfContent,
@@ -615,13 +616,14 @@ export async function synthesizeTutorAudio(
   text: string,
   language: DialectCode
 ): Promise<string | null> {
-  if (!API_BASE_URL || !text.trim()) return null;
+  const speechText = cleanTextForSpeech(text);
+  if (!API_BASE_URL || !speechText.trim()) return null;
 
   try {
     const response = await fetch(`${API_BASE_URL}/voice/synthesize`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, language }),
+      body: JSON.stringify({ text: speechText, language }),
       signal: AbortSignal.timeout(10_000),
     });
     if (response.ok) {
@@ -630,6 +632,79 @@ export async function synthesizeTutorAudio(
     }
   } catch {
     // Graceful fallback to browser TTS
+  }
+  return null;
+}
+
+const VITE_GEMINI_KEY =
+  (import.meta.env.VITE_GEMINI_API_KEY as string | undefined)?.trim() || '';
+
+export async function generateGeminiDirectAnswer(params: {
+  apiKey: string;
+  query: string;
+  docTitle: string;
+  contextChunks: DocumentChunk[];
+  conversationHistory: Array<{ sender: 'user' | 'ai'; text: string }>;
+  language: DialectCode;
+}): Promise<string | null> {
+  const { apiKey, query, docTitle, contextChunks, conversationHistory, language } = params;
+  if (!apiKey || apiKey.startsWith('mock') || !contextChunks.length) return null;
+
+  const langMap: Record<DialectCode, string> = {
+    en: 'English',
+    hi: 'Hindi (Devanagari script)',
+    gu: 'Gujarati (Gujarati script)',
+  };
+  const targetLang = langMap[language] || 'English';
+
+  const contextStr = contextChunks
+    .slice(0, 8)
+    .map((c) => `[Page ${c.page_number}]: ${c.chunk_text}`)
+    .join('\n\n');
+
+  const historyStr = conversationHistory
+    .slice(-4)
+    .map((h) => `${h.sender === 'user' ? 'Student' : 'Tutor'}: ${h.text}`)
+    .join('\n');
+
+  const systemInstruction = `You are VaaniLearn AI, a helpful, encouraging personal AI tutor.
+Answer the student's question accurately, thoroughly, and conversationally based STRICTLY on the provided document excerpts from "${docTitle}".
+- Explain concepts clearly in simple, student-friendly terms.
+- Never invent facts outside the provided text.
+- If the student asks in Hindi or Gujarati, respond in that language.
+- Mention the page numbers where key facts come from.
+- Structure explanations with clear paragraphs or bullet points where helpful.`;
+
+  const prompt = `${systemInstruction}\n\nSelected Document Excerpts:\n${contextStr}\n\n${
+    historyStr ? `Recent Conversation:\n${historyStr}\n\n` : ''
+  }Student Question: ${query}`;
+
+  const models = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'];
+
+  for (const model of models) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(10_000),
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 800,
+          },
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+        if (text) return text;
+      }
+    } catch {
+      // Continue to next model
+    }
   }
   return null;
 }
@@ -682,24 +757,32 @@ export async function askTutorQuestion(params: {
     document.extracted_metadata?.table_of_contents
   );
 
-  const isAskingChapterList =
-    /\b(chapter|chapters|content|contents|table of contents|outline|syllabus|topics|units|modules|index)\b/i.test(
-      query
-    ) &&
-    /\b(how many|count|number|what|which|list|all|tell|give|show|were|are)\b/i.test(query) &&
-    !/\bexplain\b.*\b(first|second|third|1|2|3|4|5|6|7|8|9|10)\b/i.test(query);
-
-  const specificChapterMatch = query.match(
-    /\b(?:chapter|unit|module|part)\s*(\d+|first|second|third|fourth|fifth|one|two|three|four|five)\b|\b(first|second|third)\s+chapter\b/i
-  );
-
   const wordToIndex: Record<string, number> = {
     first: 1, one: 1, '1': 1,
     second: 2, two: 2, '2': 2,
     third: 3, three: 3, '3': 3,
     fourth: 4, four: 4, '4': 4,
     fifth: 5, five: 5, '5': 5,
+    sixth: 6, six: 6, '6': 6,
+    seventh: 7, seven: 7, '7': 7,
+    eighth: 8, eight: 8, '8': 8,
+    ninth: 9, nine: 9, '9': 9,
+    tenth: 10, ten: 10, '10': 10,
+    eleven: 11, '11': 11,
+    twelve: 12, '12': 12,
+    thirteen: 13, '13': 13,
+    fourteen: 14, '14': 14,
+    fifteen: 15, '15': 15,
+    sixteen: 16, '16': 16,
+    seventeen: 17, '17': 17,
+    eighteen: 18, '18': 18,
+    nineteen: 19, '19': 19,
+    twenty: 20, '20': 20,
   };
+
+  const specificChapterMatch = query.match(
+    /\b(?:chapter|unit|module|part|lesson)\s*(\d{1,3}|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|one|two|three|four|five|six|seven|eight|nine|ten)\b|\b(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth)\s+(?:chapter|unit|module|part|lesson)\b/i
+  );
 
   let targetChapterIndex: number | null = null;
   if (specificChapterMatch) {
@@ -707,28 +790,66 @@ export async function askTutorQuestion(params: {
     targetChapterIndex = wordToIndex[token] || (Number.isFinite(Number(token)) ? Number(token) : null);
   }
 
+  // Chapter listing query ONLY when asking to list/count all chapters, NEVER when asking about a specific chapter
+  const isAskingChapterList =
+    targetChapterIndex === null &&
+    (/\b(how many|count|number of|list all|list the|list of|what are all the|what are the|which chapters|show chapters|overview of chapters|table of contents|show contents|list contents)\b/i.test(query) ||
+      (/\b(chapters|contents)\b/i.test(query) && /\b(how many|count|list|all|what are)\b/i.test(query)));
+
   const isChapterOrOverview =
     isAskingChapterList ||
     targetChapterIndex !== null ||
     /\b(overview|summarize|summary)\b/i.test(query);
 
-  // Determine exact RAG chunks for backend Gemini prompt
+  // Determine exact RAG chunks for backend/Gemini prompt
   let contextForBackend: DocumentChunk[] = [];
   if (isAskingChapterList) {
     contextForBackend = combinedChunks.slice(0, 14);
-  } else if (targetChapterIndex !== null && chapters.length >= targetChapterIndex) {
-    const startPage = chapters[targetChapterIndex - 1].page;
-    const nextChapter = chapters[targetChapterIndex];
-    const endPage = nextChapter ? Math.max(startPage, nextChapter.page - 1) : startPage + 12;
-    const chapterScoped = combinedChunks.filter(
-      (c) => c.page_number >= startPage && c.page_number <= endPage
-    );
-    contextForBackend = chapterScoped.length > 0 ? chapterScoped.slice(0, 12) : findRelevantChunks(query, combinedChunks, 8);
+  } else if (targetChapterIndex !== null) {
+    let startPage: number | null = null;
+    let endPage: number | null = null;
+
+    if (chapters.length >= targetChapterIndex) {
+      startPage = chapters[targetChapterIndex - 1].page;
+      const nextChapter = chapters[targetChapterIndex];
+      endPage = nextChapter ? Math.max(startPage, nextChapter.page - 1) : startPage + 14;
+    } else {
+      // Find chunk explicitly containing the chapter header
+      const targetPattern = new RegExp(`\\b(?:chapter|unit|module|part)\\s+${targetChapterIndex}\\b`, 'i');
+      const foundChunk = combinedChunks.find((c) => targetPattern.test(c.chunk_text));
+      if (foundChunk) {
+        startPage = foundChunk.page_number;
+        endPage = startPage + 14;
+      }
+    }
+
+    if (startPage !== null) {
+      const chapterScoped = combinedChunks.filter(
+        (c) => c.page_number >= startPage! && c.page_number <= (endPage || startPage! + 14)
+      );
+      contextForBackend = chapterScoped.length > 0 ? chapterScoped.slice(0, 12) : findRelevantChunks(query, combinedChunks, 8);
+    } else {
+      contextForBackend = findRelevantChunks(query, combinedChunks, 8);
+    }
   } else {
     contextForBackend = findRelevantChunks(query, combinedChunks, 8);
   }
 
-  const relevantChunks = findRelevantChunks(query, combinedChunks, 4);
+  // Collect previously cited chunks from conversation history to avoid repeating the exact same text
+  const previouslyCitedChunks = new Set<number>();
+  for (const turn of conversationHistory) {
+    const pageMatches = turn.text.match(/Page\s+(\d+)/gi);
+    if (pageMatches) {
+      for (const pm of pageMatches) {
+        const pNum = Number(pm.replace(/\D/g, ''));
+        combinedChunks
+          .filter((c) => c.page_number === pNum)
+          .forEach((m) => previouslyCitedChunks.add(m.chunk_index));
+      }
+    }
+  }
+
+  const relevantChunks = findRelevantChunks(query, combinedChunks, 4, previouslyCitedChunks);
 
   const buildPillarsFromChunks = (
     list: Array<DocumentChunk & { relevanceScore: number }>
@@ -888,79 +1009,96 @@ export async function askTutorQuestion(params: {
     };
   }
 
-  // Specific chapter explanation (e.g. "Explain the first chapter")
-  if (targetChapterIndex !== null) {
-    if (chapters.length >= targetChapterIndex) {
-      const ch = chapters[targetChapterIndex - 1];
-      const nextCh = chapters[targetChapterIndex];
-      const endPage = nextCh ? Math.max(ch.page, nextCh.page - 1) : ch.page + 6;
-      const chapterChunks = combinedChunks
-        .filter((c) => c.page_number >= ch.page && c.page_number <= endPage)
-        .slice(0, 3);
+  // 2. Direct Client-Side Gemini AI Generation (Generative RAG)
+  if (VITE_GEMINI_KEY && !VITE_GEMINI_KEY.startsWith('mock')) {
+    try {
+      const chunksForGemini = contextForBackend.length > 0 ? contextForBackend : relevantChunks;
+      const effectiveQuery =
+        targetChapterIndex !== null
+          ? `Explain what Chapter ${targetChapterIndex} is about in detail using only the provided excerpts from Chapter ${targetChapterIndex}. Answer this student question: "${query}"`
+          : query;
 
-      if (chapterChunks.length > 0) {
-        const answerText = `Based on ${ch.title} of "${document.title}" (starting on Page ${ch.page}):\n\n${chapterChunks
-          .map((c) => cleanSnippet(c.chunk_text, 280))
-          .join('\n\n')}`;
+      const directGeminiAnswer = await generateGeminiDirectAnswer({
+        apiKey: VITE_GEMINI_KEY,
+        query: effectiveQuery,
+        docTitle: document.title,
+        contextChunks: chunksForGemini,
+        conversationHistory,
+        language,
+      });
+
+      if (directGeminiAnswer) {
+        const directPillars = chunksForGemini.slice(0, 3).map((c, idx) => ({
+          label: targetChapterIndex !== null ? `CH 0${targetChapterIndex} • P.${c.page_number}` : `PILLAR 0${idx + 1}`,
+          title: c.chunk_index === -1 ? 'Saved Study Notes' : `Page ${c.page_number} Key Point`,
+          summary: c.chunk_text.slice(0, 110).trim() + '…',
+        }));
+
         return {
-          answerText,
+          answerText: directGeminiAnswer,
           audioUrl: null,
-          pillars: buildPillarsFromChunks(
-            chapterChunks.map((c) => ({ ...c, relevanceScore: 0.92 }))
-          ),
-          citations: chapterChunks.slice(0, 2).map((c) => ({
+          pillars: directPillars,
+          citations: chunksForGemini.slice(0, 2).map((c) => ({
             page: c.page_number,
-            relevance_score: 0.92,
+            relevance_score: 0.95,
             source: document.title,
             excerpt: cleanSnippet(c.chunk_text, 160),
           })),
         };
       }
-    } else if (chapters.length === 0) {
-      // Fallback to Page 1 ordered opening content if PDF has no chapter headings
-      const openingChunks = combinedChunks.slice(0, 2);
-      const answerText = `"${document.title}" does not contain labeled chapter headings. Here is how the document begins (Page ${openingChunks[0].page_number}):\n\n${cleanSnippet(openingChunks[0].chunk_text, 400)}`;
-      return {
-        answerText,
-        audioUrl: null,
-        pillars: buildPillarsFromChunks(openingChunks.map((c) => ({ ...c, relevanceScore: 0.8 }))),
-        citations: [
-          {
-            page: openingChunks[0].page_number,
-            relevance_score: 0.8,
-            source: document.title,
-            excerpt: cleanSnippet(openingChunks[0].chunk_text, 160),
-          },
-        ],
-      };
-    } else {
-      return {
-        answerText: `"${document.title}" only has ${chapters.length} detected chapters, so Chapter ${targetChapterIndex} was not found.`,
-        audioUrl: null,
-        pillars: [],
-        citations: [],
-      };
+    } catch (geminiErr) {
+      console.warn('[Direct Gemini RAG Error]', geminiErr);
     }
   }
 
-  // Strict BM25 keyword overlap verification
+  // 3. Grounded Extractive Fallback for Specific Chapter (when Gemini is unavailable)
+  if (targetChapterIndex !== null) {
+    const chapterChunks = contextForBackend.length > 0 ? contextForBackend : combinedChunks.slice(0, 3);
+    const chTitle = chapters[targetChapterIndex - 1]?.title || `Chapter ${targetChapterIndex}`;
+    const startP = chapterChunks[0]?.page_number || 1;
+    const endP = chapterChunks[chapterChunks.length - 1]?.page_number || startP;
+
+    const openingSentence = chapterChunks[0]?.chunk_text.split(/(?<=[.!?])\s+/)[0]?.trim() || '';
+    const points = chapterChunks
+      .slice(0, 3)
+      .map((c) => `• (Page ${c.page_number}): ${cleanSnippet(c.chunk_text, 220)}`)
+      .join('\n\n');
+
+    const answerText = `Based on ${chTitle} (Pages ${startP}–${endP}) of "${document.title}":\n\n${
+      openingSentence ? `Summary: ${openingSentence}\n\n` : ''
+    }Key content from this chapter:\n${points}`;
+
+    return {
+      answerText,
+      audioUrl: null,
+      pillars: buildPillarsFromChunks(chapterChunks.map((c) => ({ ...c, relevanceScore: 0.92 }))),
+      citations: chapterChunks.slice(0, 2).map((c) => ({
+        page: c.page_number,
+        relevance_score: 0.92,
+        source: document.title,
+        excerpt: cleanSnippet(c.chunk_text, 160),
+      })),
+    };
+  }
+
+  // 3. Smart Extractive Grounded RAG Fallback (Sentence-Level Precision)
   const queryTerms = extractQueryTerms(query);
-  const primary = relevantChunks[0];
+  const primary = relevantChunks[0] || combinedChunks[0];
   const secondary = relevantChunks[1];
 
-  if (!isChapterOrOverview && queryTerms.length > 0 && primary.termHits === 0 && conversationHistory.length === 0) {
+  if (!isChapterOrOverview && queryTerms.length > 0 && primary.termHits === 0) {
     const notFoundMsg =
       language === 'hi'
-        ? `चुनी गई PDF ("${document.title}") में इस प्रश्न का उत्तर देने के लिए पर्याप्त जानकारी उपलब्ध नहीं है।`
+        ? `चुनी गई PDF ("${document.title}") में "${query}" के संबंध में विशिष्ट जानकारी नहीं मिली। कृपया दस्तावेज़ में उल्लिखित अन्य विषयों या अध्यायों के बारे में पूछें।`
         : language === 'gu'
-        ? `પસંદ કરેલી PDF ("${document.title}") માં આ પ્રશ્નનો જવાબ આપવા માટે પૂરતી માહિતી ઉપલબ્ધ નથી.`
-        : `The selected PDF ("${document.title}") does not contain enough information to answer this question.`;
+        ? `પસંદ કરેલી PDF ("${document.title}") માં "${query}" વિશે ચોક્કસ માહિતી મળી નથી. કૃપા કરીને દસ્તાવેજના અન્ય પ્રકરણો અથવા વિષયો વિશે પૂછો.`
+        : `I searched across the indexed pages of "${document.title}", but could not find specific text discussing "${query}". Try asking about specific chapters or topics covered in this document.`;
     return { answerText: notFoundMsg, audioUrl: null, pillars: [], citations: [] };
   }
 
   const isQuizRequest = /quiz|question|test|rapid-fire|mcq/i.test(query);
-
   let answerText = '';
+
   if (isQuizRequest) {
     const sentences = relevantChunks
       .flatMap((c) => c.chunk_text.split(/(?<=[.!?])\s+/))
@@ -982,16 +1120,45 @@ export async function askTutorQuestion(params: {
       answerText = `From "${document.title}" (Page ${primary.page_number}):\n\n${cleanSnippet(primary.chunk_text)}`;
     }
   } else {
-    const prefix =
-      language === 'hi'
-        ? `"${document.title}" (पृष्ठ ${primary.page_number}) के आधार पर:\n\n`
-        : language === 'gu'
-        ? `"${document.title}" (પાનું ${primary.page_number}) મુજબ:\n\n`
-        : `From "${document.title}" (Page ${primary.page_number}):\n\n`;
+    // Extract exact sentences from top chunks that directly answer the query terms
+    const matchingSentences: Array<{ page: number; sentence: string }> = [];
+    const seenSentences = new Set<string>();
 
-    answerText = `${prefix}${cleanSnippet(primary.chunk_text)}`;
-    if (secondary && secondary.page_number !== primary.page_number && secondary.termHits > 0) {
-      answerText += `\n\nRelated detail (Page ${secondary.page_number}): ${cleanSnippet(secondary.chunk_text, 220)}`;
+    for (const chunk of relevantChunks) {
+      if (chunk.termHits === 0 && queryTerms.length > 0) continue;
+      const sentences = chunk.chunk_text.split(/(?<=[.!?])\s+/);
+      for (const sent of sentences) {
+        const lower = sent.toLowerCase();
+        const hasHit = queryTerms.length === 0 || queryTerms.some((t) => lower.includes(t));
+        const clean = sent.trim();
+        if (hasHit && clean.length > 25 && !seenSentences.has(clean)) {
+          seenSentences.add(clean);
+          matchingSentences.push({ page: chunk.page_number, sentence: clean });
+        }
+      }
+    }
+
+    if (matchingSentences.length > 0 && queryTerms.length > 0) {
+      const points = matchingSentences
+        .slice(0, 4)
+        .map((item) => `• (Page ${item.page}) ${item.sentence}`)
+        .join('\n\n');
+      answerText = `Based on "${document.title}", here is what the document details regarding your question:\n\n${points}`;
+      if (secondary && secondary.page_number !== primary.page_number && secondary.termHits > 0) {
+        answerText += `\n\nAdditional context from Page ${secondary.page_number}:\n${cleanSnippet(secondary.chunk_text, 220)}`;
+      }
+    } else {
+      const prefix =
+        language === 'hi'
+          ? `"${document.title}" (पृष्ठ ${primary.page_number}) के आधार पर:\n\n`
+          : language === 'gu'
+          ? `"${document.title}" (પાનું ${primary.page_number}) મુજબ:\n\n`
+          : `From "${document.title}" (Page ${primary.page_number}):\n\n`;
+
+      answerText = `${prefix}${cleanSnippet(primary.chunk_text)}`;
+      if (secondary && secondary.page_number !== primary.page_number && secondary.termHits > 0) {
+        answerText += `\n\nRelated detail (Page ${secondary.page_number}): ${cleanSnippet(secondary.chunk_text, 220)}`;
+      }
     }
   }
 

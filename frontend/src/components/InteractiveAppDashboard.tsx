@@ -464,8 +464,9 @@ export const InteractiveAppDashboard: React.FC<InteractiveAppDashboardProps> = (
             </button>
 
             <span className="inline-flex items-center gap-1.5 text-xs text-[#5E5E5E] truncate">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
               <Mic className="w-3.5 h-3.5 text-[#1A1C1B] flex-shrink-0" />
-              <span className="truncate">Multilingual Voice Engine Active</span>
+              <span className="truncate font-medium">Gnani AI Voice Engine Active</span>
             </span>
           </div>
 
